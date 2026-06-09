@@ -1,5 +1,8 @@
 node_modules
 
+# Local planning (not published)
+goals/
+
 # Output
 .output
 .vercel
