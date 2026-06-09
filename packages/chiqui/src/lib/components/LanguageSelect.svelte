@@ -9,7 +9,11 @@
 		getTranslatedSlug
 	}: {
 		lang?: string;
-		getTranslatedSlug?: (currentLang: string, currentSlug: string, targetLang: string) => string | null;
+		getTranslatedSlug?: (
+			currentLang: string,
+			currentSlug: string,
+			targetLang: string
+		) => string | null;
 	} = $props();
 
 	let currentLang = $derived(page.params.lang || lang || defaultLang());

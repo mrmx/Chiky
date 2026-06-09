@@ -99,11 +99,8 @@ export function validateConfigDev(c: AppConfig): void {
 		if (!isObj(items)) throw err(`nav.${sectionName}.items must be Record<lang, NavNode[]>`);
 
 		for (const [lang, arr] of Object.entries(items as Record<string, unknown>)) {
-			if (!Array.isArray(arr))
-				throw err(`nav.${sectionName}.items["${lang}"] must be NavNode[]`);
-			arr.forEach((node, i) =>
-				checkNode(node as any, `nav.${sectionName}.items["${lang}"][${i}]`)
-			);
+			if (!Array.isArray(arr)) throw err(`nav.${sectionName}.items["${lang}"] must be NavNode[]`);
+			arr.forEach((node, i) => checkNode(node as any, `nav.${sectionName}.items["${lang}"][${i}]`));
 		}
 	}
 }

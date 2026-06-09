@@ -21,12 +21,12 @@ Create `config.ts` at the root of your project:
 import type { AppConfig } from '@mrmx/chiqui';
 
 const config: AppConfig = {
-  site: { name: 'My Site' },
-  i18n: { defaultLang: 'en', supported: ['en'] },
-  nav: {
-    header: { show: true, items: { en: [{ name: 'Home', href: '/en' }] } },
-    footer: { show: true, items: { en: [] } }
-  }
+	site: { name: 'My Site' },
+	i18n: { defaultLang: 'en', supported: ['en'] },
+	nav: {
+		header: { show: true, items: { en: [{ name: 'Home', href: '/en' }] } },
+		footer: { show: true, items: { en: [] } }
+	}
 };
 
 export default config;

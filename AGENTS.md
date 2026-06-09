@@ -33,6 +33,7 @@ pnpm test                                 # Run all tests across workspace
 Exports via subpath exports (`@mrmx/chiqui`, `@mrmx/chiqui/config`, `@mrmx/chiqui/content`, `@mrmx/chiqui/components`, `@mrmx/chiqui/navigation`, `@mrmx/chiqui/vite`, `@mrmx/chiqui/svelte-config`).
 
 Key design decisions:
+
 - **`initConfig(rawConfig)`** — consumer provides their AppConfig, chiqui caches and exposes helpers (siteName, navItems, etc.)
 - **`createContent(modules)`** — factory that takes `import.meta.glob` result from the consumer (Vite glob must run in consumer context)
 - **`createSvelteConfig(adapter, vitePreprocess, mdsvex)`** — generates standard SvelteKit config

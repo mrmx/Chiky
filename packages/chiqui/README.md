@@ -1,4 +1,5 @@
 # <img src="https://raw.githubusercontent.com/mrmx/Chiqui/main/sites/docs/static/img/logo.svg" alt="Chiqui logo" width="96" height="96" valign="middle" /> Chiqui
+
 [![npm version](https://img.shields.io/npm/v/@mrmx/chiqui.svg)](https://www.npmjs.com/package/@mrmx/chiqui)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mrmx/Chiqui/blob/main/LICENSE)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2-ff3e00.svg?logo=svelte)](https://svelte.dev/docs/kit)

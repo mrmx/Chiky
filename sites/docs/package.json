@@ -1,40 +1,39 @@
 {
-  "private": true,
-  "name": "docs",
-  "version": "0.0.1",
-  "type": "module",
-  "scripts": {
-    "build": "vite build",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "dev": "vite dev",
-    "format": "prettier -l --write .",
-    "prepare": "svelte-kit sync || echo ''",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:cov": "vitest run --coverage"
-  },
-  "dependencies": {
-    "@mrmx/chiqui": "workspace:*"
-  },
-  "devDependencies": {
-    "@sveltejs/adapter-auto": "^6.1.1",
-    "@sveltejs/kit": "^2.47.0",
-    "@sveltejs/vite-plugin-svelte": "^6.2.1",
-    "@tailwindcss/typography": "^0.5.19",
-    "@tailwindcss/vite": "^4.1.14",
-    "@vitest/coverage-v8": "^3.2.4",
-    "daisyui": "^5.3.2",
-    "mdsvex": "^0.12.6",
-    "npm-run-all2": "^8.0.4",
-    "prettier": "^3.6.2",
-    "prettier-plugin-svelte": "^3.4.0",
-    "svelte": "^5.40.1",
-    "svelte-check": "^4.3.3",
-    "tailwindcss": "^4.1.14",
-    "typescript": "^5.9.3",
-    "vite": "^7.1.10",
-    "vitest": "^3.2.4"
-  },
-  "pnpm": {}
-
+	"private": true,
+	"name": "docs",
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"dev": "vite dev",
+		"format": "prettier -l --write .",
+		"prepare": "svelte-kit sync || echo ''",
+		"preview": "vite preview",
+		"test": "vitest run",
+		"test:cov": "vitest run --coverage"
+	},
+	"dependencies": {
+		"@mrmx/chiqui": "workspace:*"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^6.1.1",
+		"@sveltejs/kit": "^2.47.0",
+		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"@tailwindcss/typography": "^0.5.19",
+		"@tailwindcss/vite": "^4.1.14",
+		"@vitest/coverage-v8": "^3.2.4",
+		"daisyui": "^5.3.2",
+		"mdsvex": "^0.12.6",
+		"npm-run-all2": "^8.0.4",
+		"prettier": "^3.6.2",
+		"prettier-plugin-svelte": "^3.4.0",
+		"svelte": "^5.40.1",
+		"svelte-check": "^4.3.3",
+		"tailwindcss": "^4.1.14",
+		"typescript": "^5.9.3",
+		"vite": "^7.1.10",
+		"vitest": "^3.2.4"
+	},
+	"pnpm": {}
 }
