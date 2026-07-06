@@ -322,3 +322,55 @@ describe('contentRoutes', () => {
 		expect(store.contentRoutes).toHaveLength(0);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// contentEntries
+// ---------------------------------------------------------------------------
+describe('contentEntries', () => {
+	it('generates a { lang, slug } pair for each content entry', () => {
+		const store = createContent(
+			makeModules([
+				{ path: '/content/en/about.md', id: 'about', title: 'About' },
+				{ path: '/content/es/acerca.md', id: 'about', title: 'Acerca' }
+			])
+		);
+		expect(store.contentEntries()).toEqual(
+			expect.arrayContaining([
+				{ lang: 'en', slug: 'about' },
+				{ lang: 'es', slug: 'acerca' }
+			])
+		);
+	});
+
+	it('uses an empty slug for index pages', () => {
+		const store = createContent(
+			makeModules([{ path: '/content/en/index.md', id: 'home', title: 'Home' }])
+		);
+		expect(store.contentEntries()).toEqual([{ lang: 'en', slug: '' }]);
+	});
+
+	it('preserves nested slugs', () => {
+		const store = createContent(
+			makeModules([{ path: '/content/en/guide/intro.md', id: 'guide-intro', title: 'Intro' }])
+		);
+		expect(store.contentEntries()).toEqual([{ lang: 'en', slug: 'guide/intro' }]);
+	});
+
+	it('covers every language for the same slug', () => {
+		const store = createContent(
+			makeModules([
+				{ path: '/content/en/docs.md', id: 'docs', title: 'Docs' },
+				{ path: '/content/es/docs.md', id: 'docs', title: 'Documentación' }
+			])
+		);
+		const langs = store.contentEntries().map((e) => e.lang);
+		expect(langs).toContain('en');
+		expect(langs).toContain('es');
+		expect(store.contentEntries()).toHaveLength(2);
+	});
+
+	it('returns empty array for no modules', () => {
+		const store = createContent({});
+		expect(store.contentEntries()).toHaveLength(0);
+	});
+});

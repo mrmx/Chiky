@@ -100,6 +100,7 @@ export interface ContentStore {
 		origin: string
 	) => Array<{ lang: string; href: string }>;
 	contentRoutes: string[];
+	contentEntries: () => Array<{ lang: string; slug: string }>;
 }
 
 /** Create a content store from Vite glob modules (import.meta.glob result). */
@@ -157,6 +158,16 @@ export function createContent(modules: Record<string, any>): ContentStore {
 
 	const contentRoutes = contents.map((c) => `/${c.lang}/${c.slug}`);
 
+	/**
+	 * Derives SvelteKit `entries()` params from the loaded content, for routes shaped like
+	 * `[[lang]]/[...slug]`: one `{ lang, slug }` pair per content entry (slug is '' for an
+	 * index/home page). Feed this to `export function entries()` in the dynamic route's
+	 * `+page.ts` so `adapter-static` knows which lang/slug combinations to prerender.
+	 */
+	function contentEntries(): Array<{ lang: string; slug: string }> {
+		return contents.map((c) => ({ lang: c.lang, slug: c.slug }));
+	}
+
 	return {
 		contents,
 		index,
@@ -164,6 +175,7 @@ export function createContent(modules: Record<string, any>): ContentStore {
 		getContent,
 		getTranslatedSlug,
 		getHreflangAlternates,
-		contentRoutes
+		contentRoutes,
+		contentEntries
 	};
 }

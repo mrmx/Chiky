@@ -49,11 +49,29 @@ Key design decisions:
 5. Routes import from `$lib/config` and `$lib/content` (the site's thin wrappers)
 6. Layout uses `<Header />` and `<Footer />` from `@mrmx/chiqui/components`
 
+### Static generation (prerender)
+
+Chiqui sites are genuinely static: `sites/docs` uses `@sveltejs/adapter-static` (not
+`adapter-auto`), configured via `createSvelteConfig(adapter, vitePreprocess, mdsvex)` in
+`svelte.config.js`.
+
+- `src/routes/+layout.ts` sets `export const prerender = true;` so every route is prerendered.
+- The dynamic content route `src/routes/[[lang]]/[...slug]/+page.ts` exports
+  `entries()`, built from `contentEntries()` (see below) plus one explicit
+  `{ lang: '', slug: '' }` entry so the bare `/` root is also prerendered (it renders the
+  defaultLang home page, same as `/{defaultLang}`).
+- `pnpm --filter docs build` (or root `pnpm build`) emits static HTML into
+  `sites/docs/build/` — one file per lang/slug combination (e.g. `index.html`, `en.html`,
+  `en/about.html`, `es/acerca.html`).
+
 ### Content system
 
 - Markdown files in `content/{lang}/{slug}.md` with frontmatter `id` (canonical cross-language identifier)
 - Build-time validation: unique slugs per lang, unique (id, lang) pairs
 - i18n via `getTranslatedSlug()` using canonical IDs
+- `contentEntries()` derives `{ lang, slug }[]` from loaded content for use in SvelteKit's
+  `entries()` (the active way to feed prerendering); `contentRoutes` (`/{lang}/{slug}` strings)
+  is kept for backwards compatibility
 
 ## Stack
 

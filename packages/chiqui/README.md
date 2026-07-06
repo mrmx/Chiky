@@ -83,7 +83,8 @@ export const {
 	getContent,
 	getTranslatedSlug,
 	getHreflangAlternates,
-	contentRoutes
+	contentRoutes,
+	contentEntries
 } = createContent(modules);
 ```
 
@@ -137,11 +138,65 @@ content/es/acerca.md -> /es/acerca
 content/en/index.md  -> /en
 ```
 
+### 6. Static generation (adapter-static + prerender)
+
+Chiqui sites are meant to be prerendered to plain HTML. Install `@sveltejs/adapter-static`
+instead of `adapter-auto` and pass it to `createSvelteConfig()`:
+
+```bash
+pnpm add -D @sveltejs/adapter-static
+```
+
+```js
+// svelte.config.js
+import adapter from '@sveltejs/adapter-static';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { mdsvex } from 'mdsvex';
+import { createSvelteConfig } from '@mrmx/chiqui/svelte-config';
+
+export default createSvelteConfig(adapter, vitePreprocess, mdsvex);
+```
+
+Opt every route into prerendering:
+
+```ts
+// src/routes/+layout.ts
+export const prerender = true;
+```
+
+If your content lives behind a dynamic route like `src/routes/[[lang]]/[...slug]/+page.ts`
+(the pattern used by `sites/docs`), export `entries()` so adapter-static knows which
+`lang`/`slug` combinations exist. Use the `contentEntries()` helper exposed by the content
+store instead of the raw `contentRoutes` array:
+
+```ts
+// src/routes/[[lang]]/[...slug]/+page.ts
+import { contentEntries } from '$lib/content';
+import { defaultLang } from '$lib/config';
+
+export function entries() {
+	// contentEntries() covers every `/{lang}/{slug}` page. The bare `/` root needs an
+	// explicit empty-lang entry so it's prerendered too (it renders the defaultLang home
+	// page — see load() below).
+	return [{ lang: '', slug: '' }, ...contentEntries()];
+}
+
+export function load({ params }) {
+	let { lang = '', slug } = params;
+	if (lang === '') lang = defaultLang();
+	// ...getContent(lang, slug) as before
+}
+```
+
+`pnpm build` then emits a fully static `build/` directory (`index.html`, `en.html`,
+`en/about.html`, `es/acerca.html`, ...) that can be served from any static host.
+
 ## Package Exports
 
 - `@mrmx/chiqui` — types (`AppConfig`, `Link`, `Group`, `NavNode`, `ContentEntry`)
 - `@mrmx/chiqui/config` — `initConfig`, `siteName`, `navItems`, `defaultLang`, etc.
-- `@mrmx/chiqui/content` — `createContent` factory
+- `@mrmx/chiqui/content` — `createContent` factory (exposes `contentEntries()` for
+  `entries()` in prerendered dynamic routes, plus the legacy `contentRoutes` array)
 - `@mrmx/chiqui/components` — `Header`, `Footer`, `Hero`, `Carousel`, `LanguageSelect`, `LightDarkMode`, `Icon`, `NavLink`, `SiteLogo`
 - `@mrmx/chiqui/navigation` — navigation helpers
 - `@mrmx/chiqui/vite` — `chiquiViteConfig()` for `vite.config.ts`

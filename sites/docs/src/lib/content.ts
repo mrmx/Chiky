@@ -9,5 +9,6 @@ export const {
 	getContent,
 	getTranslatedSlug,
 	getHreflangAlternates,
-	contentRoutes
+	contentRoutes,
+	contentEntries
 } = createContent(modules);
