@@ -1,6 +1,7 @@
 ---
 id: docs
 title: Documentation
+description: Get started with Chiqui — install the package, write your config, add Markdown content, and wire up your SvelteKit site.
 ---
 
 ## Getting Started

@@ -30,7 +30,7 @@ pnpm test                                 # Run all tests across workspace
 
 ### packages/chiqui
 
-Exports via subpath exports (`@mrmx/chiqui`, `@mrmx/chiqui/config`, `@mrmx/chiqui/content`, `@mrmx/chiqui/components`, `@mrmx/chiqui/navigation`, `@mrmx/chiqui/vite`, `@mrmx/chiqui/svelte-config`).
+Exports via subpath exports (`@mrmx/chiqui`, `@mrmx/chiqui/config`, `@mrmx/chiqui/content`, `@mrmx/chiqui/components`, `@mrmx/chiqui/navigation`, `@mrmx/chiqui/hooks`, `@mrmx/chiqui/sitemap`, `@mrmx/chiqui/vite`, `@mrmx/chiqui/svelte-config`).
 
 Key design decisions:
 
@@ -40,6 +40,26 @@ Key design decisions:
 - **`chiquiViteConfig()`** — returns Vite config with test/coverage defaults; merges `options.vite` with Vite's own `mergeConfig` (deep merge) instead of a shallow `...spread`, so nested keys like `server.fs.allow` survive a caller passing e.g. `vite: { server: {...} }`
 - **`getLevelContentEntries()`** (in `@mrmx/chiqui/navigation`) returns `NavItem[]` (`{ lang, slug, title }`), a dedicated synthetic-nav-node type — not a fabricated `ContentEntry` (which would lie about having a real `component`/`metadata.id`)
 - Components use `$lib/` imports internally (resolved by svelte-package during build). `Header` renders `Group` nav nodes as a DaisyUI dropdown submenu (`<details>` inside `menu menu-horizontal`, recursive for nested groups) instead of silently dropping them; it uses `$app/state` (not the deprecated `$app/stores`), consistent with `LanguageSelect`.
+- **SEO** (`<Seo>` in `@mrmx/chiqui/components`) — per-page `<title>`, canonical, hreflang
+  alternates + `x-default`, OG/Twitter tags. Takes `getHreflangAlternates` injected the same
+  way `Header` takes `getTranslatedSlug`. Its pure URL-building logic (`buildCanonicalPath`,
+  `buildPageTitle`, `toAbsoluteUrl`, `findDefaultAlternate`, `normalizeOrigin`) lives in
+  `src/lib/seo.ts` (untested-via-render, tested directly since this package has no
+  component-render test harness). `AppConfig.site.url` (+ `siteUrl()` helper) is the
+  configured absolute origin, normalized (no trailing slash); falls back to `page.url.origin`.
+  `<html lang>` is handled separately: `app.html` keeps a literal `%lang%` placeholder and
+  `createLangHandle()` (`@mrmx/chiqui/hooks`) rewrites it per-request via
+  `transformPageChunk`, since the site is fully prerendered and has no other way to
+  template the root HTML document.
+- **`generateSitemapXml()`** (`@mrmx/chiqui/sitemap`) builds `sitemap.xml` from a
+  `ContentStore`-shaped object (`{ contents, getHreflangAlternates }` — a minimal structural
+  type, not the full `ContentStore`), with `xhtml:link` hreflang alternates per entry.
+  **Known quirk**: `getHreflangAlternates` templates hrefs as `${origin}/${lang}/${slug}`,
+  giving a trailing slash for empty-slug/home entries (`/en/`) even though the real
+  prerendered file serves `/en` (no slash). `<Seo>`'s own canonical link and
+  `generateSitemapXml`'s `<loc>` avoid this by building a clean path directly
+  (`buildCanonicalPath()`), but the hreflang `<link>`/`<xhtml:link>` tags themselves still
+  carry it, since GOAL-05 keeps `getHreflangAlternates`'s signature/behavior untouched.
 
 ### Consumer pattern (sites/docs shows the canonical example)
 
@@ -66,7 +86,14 @@ Chiqui sites are genuinely static: `sites/docs` uses `@sveltejs/adapter-static` 
   defaultLang home page, same as `/{defaultLang}`).
 - `pnpm --filter docs build` (or root `pnpm build`) emits static HTML into
   `sites/docs/build/` — one file per lang/slug combination (e.g. `index.html`, `en.html`,
-  `en/about.html`, `es/acerca.html`).
+  `en/about.html`, `es/acerca.html`) — 7 HTML files for the current content set, plus a
+  prerendered `sitemap.xml` (`src/routes/sitemap.xml/+server.ts`, `export const prerender =
+  true`, no `entries()` needed since it's a static route name) and a static `robots.txt`
+  (`static/robots.txt`).
+- `src/routes/+error.svelte` handles in-app errors (e.g. an unknown slug's `load()` throwing
+  `error(404, ...)`), but `adapter-static` does **not** emit a `404.html` fallback by
+  default — see the README's SEO section (404 page) for the `fallback`/`strict` adapter
+  options pattern if a host needs one.
 
 ### Content system
 

@@ -49,6 +49,14 @@
 			"types": "./dist/navigation.d.ts",
 			"default": "./dist/navigation.js"
 		},
+		"./hooks": {
+			"types": "./dist/hooks.d.ts",
+			"default": "./dist/hooks.js"
+		},
+		"./sitemap": {
+			"types": "./dist/sitemap.d.ts",
+			"default": "./dist/sitemap.js"
+		},
 		"./types": {
 			"types": "./dist/types.d.ts",
 			"default": "./dist/types.js"

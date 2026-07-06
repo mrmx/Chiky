@@ -1,5 +1,6 @@
 ---
 id: home
+description: Un generador de sitios estáticos ligero y basado en contenido, construido sobre SvelteKit, con i18n integrado, mdsvex y componentes DaisyUI.
 ---
 
 Un generador de sitios estáticos ligero, basado en contenido, construido sobre SvelteKit.

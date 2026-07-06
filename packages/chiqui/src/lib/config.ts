@@ -35,6 +35,13 @@ export interface AppConfig {
 		name: string;
 		copyright?: string;
 		logoUrl?: string;
+		/**
+		 * Absolute base URL of the deployed site (e.g. `https://example.com`), used as the
+		 * `origin` fallback for canonical links, hreflang alternates, and sitemap.xml when no
+		 * explicit `origin` is passed. Normalized to strip any trailing slash. Optional — falls
+		 * back to `page.url.origin` at render time when unset.
+		 */
+		url?: string;
 	};
 	i18n: {
 		defaultLang: string;
@@ -60,6 +67,8 @@ export function validateConfigDev(c: AppConfig): void {
 		throw err('site.copyright must be string if provided');
 	if (c.site.logoUrl != null && typeof c.site.logoUrl !== 'string')
 		throw err('site.logoUrl must be string if provided');
+	if (c.site.url != null && typeof c.site.url !== 'string')
+		throw err('site.url must be string if provided');
 
 	if (typeof c.i18n.defaultLang !== 'string') throw err('i18n.defaultLang must be string');
 	if (!Array.isArray(c.i18n.supported)) throw err('i18n.supported must be string[]');
@@ -108,7 +117,8 @@ export function validateConfigDev(c: AppConfig): void {
 /* ------------ Normalize ------------ */
 function normalizeConfig(c: AppConfig): AppConfig {
 	const supported = Array.from(new Set([c.i18n.defaultLang, ...c.i18n.supported]));
-	return { ...c, i18n: { ...c.i18n, supported } };
+	const url = c.site.url ? c.site.url.replace(/\/+$/, '') : c.site.url;
+	return { ...c, site: { ...c.site, url }, i18n: { ...c.i18n, supported } };
 }
 
 /* ------------ Init + cache ------------ */
@@ -185,6 +195,8 @@ export function cfg<T = unknown>(path: string, fallback?: T): T {
 export const siteName = () => getConfig().site.name;
 export const siteCopyright = () => getConfig().site.copyright ?? getConfig().site.name;
 export const siteLogo = () => getConfig().site.logoUrl;
+/** Normalized (no trailing slash) `site.url`, or `undefined` if not configured. */
+export const siteUrl = () => getConfig().site.url;
 export const defaultLang = () => getConfig().i18n.defaultLang;
 export const supportedLangs = () => getConfig().i18n.supported;
 export const showHeader = () => showSection('header');

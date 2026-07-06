@@ -12,6 +12,7 @@ import {
 	siteName,
 	siteCopyright,
 	siteLogo,
+	siteUrl,
 	defaultLang,
 	supportedLangs,
 	showHeader,
@@ -125,6 +126,29 @@ describe('normalizeConfig (via initConfig)', () => {
 		expect(config.i18n.supported[0]).toBe('fr');
 		expect(config.i18n.supported).toContain('en');
 	});
+
+	it('strips a trailing slash from site.url', async () => {
+		vi.resetModules();
+		const { initConfig: freshInit, getConfig: freshGet } = await import('../src/lib/config.js');
+		const raw = makeConfig({ site: { name: 'Test Site', url: 'https://example.com/' } });
+		freshInit(raw);
+		expect(freshGet().site.url).toBe('https://example.com');
+	});
+
+	it('strips multiple trailing slashes from site.url', async () => {
+		vi.resetModules();
+		const { initConfig: freshInit, getConfig: freshGet } = await import('../src/lib/config.js');
+		const raw = makeConfig({ site: { name: 'Test Site', url: 'https://example.com///' } });
+		freshInit(raw);
+		expect(freshGet().site.url).toBe('https://example.com');
+	});
+
+	it('leaves site.url undefined untouched', async () => {
+		vi.resetModules();
+		const { initConfig: freshInit, getConfig: freshGet } = await import('../src/lib/config.js');
+		freshInit(makeConfig());
+		expect(freshGet().site.url).toBeUndefined();
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -148,6 +172,16 @@ describe('validateConfigDev', () => {
 	it('throws when site.logoUrl is not string', () => {
 		const c = makeConfig({ site: { name: 'Test', logoUrl: true as any } });
 		expect(() => validateConfigDev(c)).toThrow('site.logoUrl must be string if provided');
+	});
+
+	it('throws when site.url is not string', () => {
+		const c = makeConfig({ site: { name: 'Test', url: 42 as any } });
+		expect(() => validateConfigDev(c)).toThrow('site.url must be string if provided');
+	});
+
+	it('passes when site.url is a valid string', () => {
+		const c = makeConfig({ site: { name: 'Test', url: 'https://example.com' } });
+		expect(() => validateConfigDev(c)).not.toThrow();
 	});
 
 	it('throws when i18n.defaultLang is not string', () => {
@@ -491,5 +525,19 @@ describe('narrow helpers', () => {
 		const { initConfig: freshInit, siteLogo: freshSiteLogo } = await import('../src/lib/config.js');
 		freshInit(makeConfig());
 		expect(freshSiteLogo()).toBeUndefined();
+	});
+
+	it('siteUrl returns the normalized site.url', async () => {
+		vi.resetModules();
+		const { initConfig: freshInit, siteUrl: freshSiteUrl } = await import('../src/lib/config.js');
+		freshInit(makeConfig({ site: { name: 'Test', url: 'https://example.com/' } }));
+		expect(freshSiteUrl()).toBe('https://example.com');
+	});
+
+	it('siteUrl returns undefined when site.url not set', async () => {
+		vi.resetModules();
+		const { initConfig: freshInit, siteUrl: freshSiteUrl } = await import('../src/lib/config.js');
+		freshInit(makeConfig());
+		expect(freshSiteUrl()).toBeUndefined();
 	});
 });

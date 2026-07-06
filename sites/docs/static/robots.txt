@@ -1,0 +1,7 @@
+# Placeholder domain below (chiqui.example — IANA-reserved .example TLD, never resolves to
+# a real site). Replace with this site's real deployed domain once it has one, keeping it in
+# sync with `site.url` in config.ts (used to build this same sitemap's URLs).
+User-agent: *
+Allow: /
+
+Sitemap: https://chiqui.example/sitemap.xml

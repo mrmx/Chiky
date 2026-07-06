@@ -1,5 +1,6 @@
 ---
 id: home
+description: A lightweight, content-driven static site generator built on SvelteKit, with built-in i18n, mdsvex, and DaisyUI components.
 ---
 
 A lightweight, content-driven static site generator built on SvelteKit.

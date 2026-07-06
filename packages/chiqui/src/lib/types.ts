@@ -14,6 +14,10 @@ export type ContentFrontmatter = {
 	title?: string;
 	/** Optional navigation metadata for building menus */
 	nav?: NavEntry;
+	/** Meta description / og:description / twitter description for `<Seo>` */
+	description?: string;
+	/** Social preview image (og:image); relative paths are resolved against the page origin */
+	image?: string;
 	// Allow any extra frontmatter fields
 	[key: string]: unknown;
 };

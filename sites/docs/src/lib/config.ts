@@ -8,6 +8,7 @@ export {
 	getConfig,
 	siteName,
 	siteLogo,
+	siteUrl,
 	defaultLang,
 	supportedLangs,
 	showHeader,

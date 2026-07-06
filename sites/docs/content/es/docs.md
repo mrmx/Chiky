@@ -1,6 +1,7 @@
 ---
 id: docs
 title: Documentación
+description: Empieza con Chiqui — instala el paquete, escribe tu configuración, añade contenido Markdown y conecta tu sitio SvelteKit.
 ---
 
 ## Inicio Rápido

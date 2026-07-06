@@ -216,6 +216,191 @@ export function load({ params }) {
 `pnpm build` then emits a fully static `build/` directory (`index.html`, `en.html`,
 `en/about.html`, `es/acerca.html`, ...) that can be served from any static host.
 
+## SEO
+
+Chiqui ships a `<Seo>` component plus a handful of small, independently usable helpers that
+together cover per-page tags, `<html lang>`, `sitemap.xml`, and `robots.txt`.
+
+### 1. `site.url` (origin for absolute URLs)
+
+Add an absolute base URL to your root `config.ts` — it's the fallback origin used for
+canonical/hreflang/OG URLs and for `sitemap.xml`/`robots.txt`:
+
+```ts
+const config: AppConfig = {
+	site: {
+		name: 'My Site',
+		url: 'https://example.com' // no trailing slash needed, it's normalized either way
+	}
+	// ...
+};
+```
+
+`siteUrl()` (exported from `@mrmx/chiqui/config`) returns the normalized value (or
+`undefined` if unset).
+
+### 2. `<Seo>` component
+
+Render it once per content page — inside `<svelte:head>` it sets `<title>`, meta
+description, `<link rel="canonical">`, per-language `hreflang` alternates (+ `x-default`),
+basic Open Graph tags, and `twitter:card`:
+
+```svelte
+<script lang="ts">
+	import { Seo } from '@mrmx/chiqui/components';
+	import { getHreflangAlternates } from '$lib/content';
+
+	let { data } = $props();
+</script>
+
+<Seo
+	lang={data.lang}
+	slug={data.slug}
+	title={data.metadata?.title}
+	description={data.metadata?.description}
+	image={data.metadata?.image}
+	{getHreflangAlternates}
+/>
+```
+
+Props:
+
+- `lang`, `slug` — the current page's language and slug (from your route's `load()`).
+- `title?`, `description?`, `image?` — typically sourced from frontmatter (`ContentFrontmatter`
+  now has optional `description`/`image` fields for this).
+- `origin?` — overrides the resolved origin; falls back to `siteUrl()`, then
+  `page.url.origin` if neither is set.
+- `getHreflangAlternates?` — injected the same way `Header` takes `getTranslatedSlug`; pass
+  your content store's `getHreflangAlternates` (from `createContent()`) to get hreflang tags
+  and `x-default` (built from the alternate matching your configured `defaultLang`). Omit it
+  and only the canonical/OG/title tags render (no hreflang links).
+
+The `og:locale` tag uses the raw 2-letter `lang` value (e.g. `en`, `es`) rather than a full
+`xx_YY` locale, since chiqui's i18n only tracks language, not region — a deliberate
+simplification.
+
+**Note on canonical vs. hreflang URLs:** `<Seo>` builds its own `<link rel="canonical">` path
+(`/{lang}/{slug}`, or just `/{lang}` for the empty-slug home entry — matching the file that's
+actually prerendered). The hreflang `<link>` tags, however, come straight from
+`getHreflangAlternates()`, which templates hrefs as `${origin}/${lang}/${slug}` — for an
+empty slug that's `/{lang}/` **with** a trailing slash, even though the real page is served at
+`/{lang}` (no slash). This is a preexisting quirk in `content.ts`'s `getHreflangAlternates`
+(GOAL-05 scope explicitly keeps its signature/behavior unchanged), so canonical tags are
+always accurate while home-page hreflang/sitemap alternates carry the trailing slash. Most
+static hosts treat `/en` and `/en/` as the same resource, but this is worth fixing upstream
+in a future pass.
+
+### 3. `<html lang>` via `createLangHandle()`
+
+Since chiqui sites are fully prerendered, `app.html` has no per-request templating — so
+`<html lang>` can't just read a Svelte store. Instead, keep a `%lang%` placeholder in
+`app.html` and rewrite it in your `handle` hook:
+
+```html
+<!-- src/app.html -->
+<html lang="%lang%"></html>
+```
+
+```ts
+// src/hooks.server.ts
+import { createLangHandle } from '@mrmx/chiqui/hooks';
+
+export const handle = createLangHandle();
+```
+
+`createLangHandle()` resolves the language from the first path segment (`/es/...` → `es`),
+falling back to `i18n.defaultLang` for unprefixed or unsupported segments, then rewrites
+`%lang%` via SvelteKit's `transformPageChunk`. It reads `defaultLang`/`supported` from your
+initialized chiqui config unless you override them: `createLangHandle({ defaultLang, supported })`.
+
+### 4. `sitemap.xml`
+
+`generateSitemapXml()` (from `@mrmx/chiqui/sitemap`) builds a sitemap `urlset` with
+`<xhtml:link rel="alternate" hreflang="...">` per translation, sourced from your content
+store's `getHreflangAlternates` (Google's recommended way to declare multilingual URL
+alternates in a sitemap):
+
+```ts
+// src/routes/sitemap.xml/+server.ts
+import { generateSitemapXml } from '@mrmx/chiqui/sitemap';
+import { contents, getHreflangAlternates } from '$lib/content';
+import { siteUrl, defaultLang } from '$lib/config';
+
+// Static route name (no params) — prerendered without needing an `entries()` export.
+export const prerender = true;
+
+export function GET() {
+	const xml = generateSitemapXml(
+		{ contents, getHreflangAlternates },
+		siteUrl() ?? 'https://example.com',
+		{ defaultLang: defaultLang() }
+	);
+	return new Response(xml, { headers: { 'content-type': 'application/xml' } });
+}
+```
+
+`generateSitemapXml(store, origin, options?)` takes the minimal slice of `ContentStore` it
+needs (`contents` + `getHreflangAlternates`) rather than requiring the full store type, so
+passing your `createContent()` result works as-is. `options.defaultLang` is optional — pass
+it to also emit an `hreflang="x-default"` link per URL.
+
+### 5. `robots.txt`
+
+`robots.txt` is plain static content — chiqui doesn't generate it, just place one in your
+`static/` directory pointing at your sitemap:
+
+```txt
+# sites/docs/static/robots.txt
+User-agent: *
+Allow: /
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+### 6. 404 page
+
+Add a `src/routes/+error.svelte` for in-app errors (e.g. your content route's `load()`
+throwing `error(404, ...)` for an unknown slug):
+
+```svelte
+<script lang="ts">
+	import { page } from '$app/state';
+	import { siteName } from '$lib/config';
+</script>
+
+<svelte:head>
+	<title>{siteName()} — {page.status}</title>
+</svelte:head>
+
+<h1>{page.status}</h1>
+<p>{page.error?.message ?? 'Page not found.'}</p>
+<a href="/">Back to home</a>
+```
+
+This covers in-app errors for routes SvelteKit knows about, but **`@sveltejs/adapter-static`
+does not emit a `404.html` by default** — a request for a path that was never prerendered
+(e.g. a typo'd URL) is a job for your static host, not this Svelte page, unless you opt in to
+an SPA-style fallback. To get one, pass adapter options yourself (chiqui's
+`createSvelteConfig()` calls whatever zero-arg thunk you give it, so no change to the helper
+is needed):
+
+```js
+// svelte.config.js
+import adapter from '@sveltejs/adapter-static';
+import { createSvelteConfig } from '@mrmx/chiqui/svelte-config';
+
+export default createSvelteConfig(
+	() => adapter({ fallback: '404.html', strict: false }),
+	vitePreprocess,
+	mdsvex
+);
+```
+
+Hosts like Vercel/Netlify then serve `404.html` (which renders your `+error.svelte`) for any
+unmatched static path. `strict: false` is required alongside `fallback` because it changes
+adapter-static's all-routes-must-be-prerendered check. Chiqui's own docs site does not enable
+this by default, so verify the interaction with `strict` for your own routes before shipping it.
+
 ## Package Exports
 
 - `@mrmx/chiqui` — types (`AppConfig`, `Link`, `Group`, `NavNode`, `ContentEntry`, `NavItem`)
@@ -224,11 +409,16 @@ export function load({ params }) {
   `entries()` in prerendered dynamic routes, `getContent()` for an O(1) indexed lookup,
   `assertValidIndex()` for strict build-time validation, plus the legacy `contentRoutes`
   array)
-- `@mrmx/chiqui/components` — `Header`, `Footer`, `Hero`, `Carousel`, `LanguageSelect`, `LightDarkMode`, `Icon`, `NavLink`, `SiteLogo`
+- `@mrmx/chiqui/components` — `Header`, `Footer`, `Hero`, `Carousel`, `LanguageSelect`, `LightDarkMode`, `Icon`, `NavLink`, `Seo`, `SiteLogo`
   - `Header` renders `Group` nav nodes as a DaisyUI dropdown submenu (`<details>` inside
     `menu menu-horizontal`), not just flat `Link`s.
+  - `Seo` renders per-page `<title>`, canonical, hreflang (+ `x-default`), OG, and Twitter
+    card tags — see the SEO section above.
 - `@mrmx/chiqui/navigation` — `getLevelContentEntries()` (returns `NavItem[]`, see Breaking
   Changes below), `PartialSlugOptions`, `NavItem`
+- `@mrmx/chiqui/hooks` — `createLangHandle()` for `hooks.server.ts` (rewrites the `%lang%`
+  placeholder in `app.html`), plus the pure `resolveLangFromPath()` it's built on
+- `@mrmx/chiqui/sitemap` — `generateSitemapXml()` for a prerendered `sitemap.xml/+server.ts`
 - `@mrmx/chiqui/vite` — `chiquiViteConfig()` for `vite.config.ts` (deep-merges `options.vite`
   via Vite's own `mergeConfig` instead of a shallow spread)
 - `@mrmx/chiqui/svelte-config` — `createSvelteConfig()` for `svelte.config.js`, fully typed

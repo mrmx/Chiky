@@ -1,15 +1,20 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import { siteName } from '$lib/config';
+	import { Seo } from '@mrmx/chiqui/components';
+	import { getHreflangAlternates } from '$lib/content';
 	let { data }: PageProps = $props();
 	let metadata = $derived(data.metadata);
 	let Page = $derived(data.component);
-	const pageTitle = $derived(`${siteName()}${metadata?.title ? ' - ' + metadata.title : ''}`);
 </script>
 
-<svelte:head>
-	<title>{pageTitle}</title>
-</svelte:head>
+<Seo
+	lang={data.lang}
+	slug={data.slug}
+	title={metadata?.title}
+	description={metadata?.description as string | undefined}
+	image={metadata?.image as string | undefined}
+	{getHreflangAlternates}
+/>
 
 {#if metadata?.title}
 	<h1>{metadata.title}</h1>

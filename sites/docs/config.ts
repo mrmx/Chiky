@@ -5,7 +5,11 @@ const extTarget = '_blank';
 const config: AppConfig = {
 	site: {
 		name: 'Chiqui',
-		logoUrl: '/img/logo.svg'
+		logoUrl: '/img/logo.svg',
+		// Placeholder domain (chiqui.example uses the IANA-reserved .example TLD, so it can
+		// never resolve to a real site) — replace with this site's real deployed domain once
+		// it has one. Used as the origin for canonical/hreflang/OG tags and sitemap.xml/robots.txt.
+		url: 'https://chiqui.example'
 	},
 	i18n: {
 		defaultLang: 'en',

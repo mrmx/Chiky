@@ -1,6 +1,7 @@
 ---
 id: about
 title: About Chiqui
+description: Chiqui is an open-source, content-driven SSG framework built on SvelteKit and mdsvex, extracted from real production websites.
 ---
 
 Chiqui is an open-source SSG framework extracted from real production websites.
