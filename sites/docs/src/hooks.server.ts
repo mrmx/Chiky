@@ -1,21 +1,15 @@
 import type { ServerInit } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 // Import config to trigger initConfig()
 import '$lib/config';
-import { contents, validateIndex } from '$lib/content';
+import { contents, assertValidIndex } from '$lib/content';
 
-console.log('Server hooks loaded');
-console.log(
-	`Loaded ${contents.length} content entries:`,
-	JSON.stringify(
-		contents.map((c) => ({ lang: c.lang, slug: c.slug, meta: c.metadata })),
-		null,
-		2
-	)
-);
+if (dev) {
+	console.log(`[chiqui] loaded ${contents.length} content entries`);
+}
 
+// Strict by design: an SSG build with invalid content (duplicate ids, missing
+// frontmatter, ...) must fail loudly instead of silently shipping broken pages.
 export const init: ServerInit = async () => {
-	console.log('Server init');
-	if (!validateIndex()) {
-		console.error('Content validation failed');
-	}
+	assertValidIndex();
 };

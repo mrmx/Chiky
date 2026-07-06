@@ -6,8 +6,13 @@
  * import { chiquiViteConfig } from '@mrmx/chiqui/vite';
  * export default chiquiViteConfig();
  * ```
+ *
+ * NOTE on the `vite` import below: this module is only ever imported from a consumer's
+ * `vite.config.ts` (never bundled into a browser/server runtime output), so `vite` is
+ * guaranteed to be present in that context even though it's only a devDependency here —
+ * it does not need to be a `peerDependency`/`dependency` of this package.
  */
-import type { UserConfig as ViteUserConfig } from 'vite';
+import { mergeConfig, type UserConfig as ViteUserConfig } from 'vite';
 
 type UserConfig = ViteUserConfig & { test?: Record<string, unknown> };
 
@@ -24,8 +29,8 @@ export interface ChiquiViteOptions {
 }
 
 export function chiquiViteConfig(options: ChiquiViteOptions = {}): UserConfig {
-	const { coverage: cov } = options;
-	return {
+	const { coverage: cov, vite } = options;
+	const base: UserConfig = {
 		server: {
 			fs: {
 				allow: ['content', 'config.ts']
@@ -47,7 +52,9 @@ export function chiquiViteConfig(options: ChiquiViteOptions = {}): UserConfig {
 					lines: cov?.lines ?? 80
 				}
 			}
-		},
-		...options.vite
+		}
 	};
+	// Deep-merge (instead of a shallow `...vite` spread) so nested keys like
+	// `server.fs.allow` above survive a caller passing e.g. `vite: { server: { ... } }`.
+	return vite ? mergeConfig(base, vite) : base;
 }

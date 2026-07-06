@@ -88,6 +88,7 @@ export interface ContentStore {
 	contents: ContentEntry[];
 	index: ContentIndex;
 	validateIndex: () => boolean;
+	assertValidIndex: () => void;
 	getContent: (lang: string, slug: string) => ContentEntry | undefined;
 	getTranslatedSlug: (
 		currentLang: string,
@@ -119,13 +120,28 @@ export function createContent(modules: Record<string, any>): ContentStore {
 		return true;
 	}
 
+	/**
+	 * Strict variant of {@link validateIndex}: throws an `Error` (with every accumulated
+	 * error message) instead of returning `false`. Warnings never throw — they are only
+	 * logged via `console.warn`, same as `validateIndex()`. Intended for build/prerender
+	 * hooks where invalid content should abort the build rather than silently ship it.
+	 */
+	function assertValidIndex(): void {
+		if (index.warnings.length) {
+			console.warn('[content] warnings:\n' + index.warnings.join('\n'));
+		}
+		if (index.errors.length) {
+			throw new Error('[content] validation failed:\n' + index.errors.join('\n'));
+		}
+	}
+
 	function normalizeRouteSlug(slug: string): string {
 		return slug && slug.trim().length > 0 ? slug : '';
 	}
 
 	function getContent(lang: string, slug: string) {
 		const normalizedSlug = normalizeRouteSlug(slug);
-		return contents.find((entry) => entry.lang === lang && entry.slug === normalizedSlug);
+		return index.bySlug[slugKey(lang, normalizedSlug)];
 	}
 
 	function getTranslatedSlug(
@@ -172,6 +188,7 @@ export function createContent(modules: Record<string, any>): ContentStore {
 		contents,
 		index,
 		validateIndex,
+		assertValidIndex,
 		getContent,
 		getTranslatedSlug,
 		getHreflangAlternates,

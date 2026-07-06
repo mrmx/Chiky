@@ -1,5 +1,17 @@
 import type { ContentEntry } from './types.js';
 
+/**
+ * A synthetic navigation node derived from content slugs (e.g. a language root or a
+ * partial-path segment such as `guide` from `guide/intro`). Unlike `ContentEntry`, a
+ * `NavItem` never claims to be backed by a real Markdown file: it has no `component`
+ * and no full `ContentFrontmatter`, only what's needed to render a nav link.
+ */
+export type NavItem = {
+	lang: string;
+	slug: string;
+	title: string;
+};
+
 export type PartialSlugOptions = {
 	/** If provided, restrict results to a specific language */
 	lang?: string;
@@ -38,12 +50,12 @@ export function getLevelContentEntries(
 	level: number,
 	entries: ContentEntry[],
 	options: PartialSlugOptions = {}
-): ContentEntry[] {
+): NavItem[] {
 	const { lang, includeIndex = false, sort = true } = options;
 	if (level < 0) throw new Error('Level must be >= 0');
 
 	const lookup = buildLookup(entries);
-	const results = new Map<string, ContentEntry>();
+	const results = new Map<string, NavItem>();
 
 	for (const e of entries) {
 		if (lang && e.lang !== lang) continue;
@@ -54,8 +66,8 @@ export function getLevelContentEntries(
 				results.set(key, {
 					lang: e.lang,
 					slug: `/${e.lang}`,
-					metadata: { title: e.lang.toUpperCase() }
-				} as ContentEntry);
+					title: e.lang.toUpperCase()
+				});
 			}
 			continue;
 		}
@@ -73,10 +85,8 @@ export function getLevelContentEntries(
 					results.set(key, {
 						lang: e.lang,
 						slug: `/${e.lang}/${e.slug}`,
-						metadata: {
-							title: e.metadata?.title ?? slugToTitle(e.slug.split('/').pop() ?? '')
-						}
-					} as ContentEntry);
+						title: e.metadata?.title ?? slugToTitle(e.slug.split('/').pop() ?? '')
+					});
 				}
 			}
 			continue;
@@ -95,13 +105,13 @@ export function getLevelContentEntries(
 		results.set(resKey, {
 			lang: e.lang,
 			slug: `/${e.lang}/${partialSlug}`,
-			metadata: { title }
-		} as ContentEntry);
+			title
+		});
 	}
 
 	let arr = Array.from(results.values());
 	if (sort) {
-		arr = arr.sort((a, b) => (a.metadata?.title || '').localeCompare(b.metadata?.title || ''));
+		arr = arr.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 	}
 	return arr;
 }

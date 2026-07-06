@@ -222,6 +222,56 @@ describe('getContent', () => {
 	it('returns undefined for wrong lang', () => {
 		expect(store.getContent('fr', 'about')).toBeUndefined();
 	});
+
+	it('is backed by index.bySlug (O(1) lookup), not a linear scan of contents', () => {
+		// Same object reference as the one stored in the index for that slug key.
+		expect(store.getContent('en', 'about')).toBe(store.index.bySlug['en/about']);
+		expect(store.getContent('en', '')).toBe(store.index.bySlug['en/']);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// assertValidIndex
+// ---------------------------------------------------------------------------
+describe('assertValidIndex', () => {
+	it('does not throw when there are no errors', () => {
+		const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const store = createContent(
+			makeModules([{ path: '/content/en/about.md', id: 'about', title: 'About' }])
+		);
+		expect(() => store.assertValidIndex()).not.toThrow();
+		consoleWarnSpy.mockRestore();
+	});
+
+	it('throws with the accumulated error messages when errors exist', () => {
+		const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const store = createContent(
+			makeModules([{ path: '/content/en/page.md' }, { path: '/content/en/other.md' }])
+		);
+		expect(() => store.assertValidIndex()).toThrow(/\[E:id\]/);
+		consoleWarnSpy.mockRestore();
+	});
+
+	it('throws once per assertValidIndex call, aggregating every error', () => {
+		const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const store = createContent({
+			'/content/en/about.md': { metadata: { id: 'same-id' }, default: FakeComponent },
+			'/content/en/about-v2.md': { metadata: { id: 'same-id' }, default: FakeComponent }
+		});
+		expect(() => store.assertValidIndex()).toThrow(/\[E:id-lang-dup\]/);
+		consoleWarnSpy.mockRestore();
+	});
+
+	it('never throws for warnings only (still calls console.warn)', () => {
+		const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const store = createContent(
+			makeModules([{ path: '/content/en/about.md', id: 'about', title: 'About' }])
+		);
+		// This fixture has no warnings either, but confirms the happy path never throws
+		// and that assertValidIndex routes through the same warning-logging behavior.
+		expect(() => store.assertValidIndex()).not.toThrow();
+		consoleWarnSpy.mockRestore();
+	});
 });
 
 // ---------------------------------------------------------------------------

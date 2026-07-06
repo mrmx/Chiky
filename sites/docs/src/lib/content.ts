@@ -6,6 +6,7 @@ export const {
 	contents,
 	index,
 	validateIndex,
+	assertValidIndex,
 	getContent,
 	getTranslatedSlug,
 	getHreflangAlternates,

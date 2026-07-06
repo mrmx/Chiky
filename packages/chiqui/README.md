@@ -80,6 +80,7 @@ export const {
 	contents,
 	index,
 	validateIndex,
+	assertValidIndex,
 	getContent,
 	getTranslatedSlug,
 	getHreflangAlternates,
@@ -138,7 +139,31 @@ content/es/acerca.md -> /es/acerca
 content/en/index.md  -> /en
 ```
 
-### 6. Static generation (adapter-static + prerender)
+### 6. Validate content at build time
+
+`createContent()` builds an index (`bySlug`, `byId`) while parsing your Markdown and
+records any problems (duplicate slugs, duplicate `(id, lang)` pairs, missing `id`, ...).
+Two ways to act on that:
+
+- `validateIndex()` — logs errors/warnings to the console and returns `false` on error,
+  `true` otherwise. Never throws. Kept for backwards compatibility / non-fatal checks.
+- `assertValidIndex()` — same accumulated errors, but **throws** instead of returning
+  `false`. Warnings are still only `console.warn`'d. For a static site generator,
+  shipping with broken content is worse than a red build, so wire it into
+  `src/hooks.server.ts`'s `init` hook — SvelteKit calls `init` once during the
+  prerendering pass, so a thrown error there fails `pnpm build`:
+
+```ts
+// src/hooks.server.ts
+import type { ServerInit } from '@sveltejs/kit';
+import { assertValidIndex } from '$lib/content';
+
+export const init: ServerInit = async () => {
+	assertValidIndex();
+};
+```
+
+### 7. Static generation (adapter-static + prerender)
 
 Chiqui sites are meant to be prerendered to plain HTML. Install `@sveltejs/adapter-static`
 instead of `adapter-auto` and pass it to `createSvelteConfig()`:
@@ -193,15 +218,29 @@ export function load({ params }) {
 
 ## Package Exports
 
-- `@mrmx/chiqui` — types (`AppConfig`, `Link`, `Group`, `NavNode`, `ContentEntry`)
+- `@mrmx/chiqui` — types (`AppConfig`, `Link`, `Group`, `NavNode`, `ContentEntry`, `NavItem`)
 - `@mrmx/chiqui/config` — `initConfig`, `siteName`, `navItems`, `defaultLang`, etc.
 - `@mrmx/chiqui/content` — `createContent` factory (exposes `contentEntries()` for
-  `entries()` in prerendered dynamic routes, plus the legacy `contentRoutes` array)
+  `entries()` in prerendered dynamic routes, `getContent()` for an O(1) indexed lookup,
+  `assertValidIndex()` for strict build-time validation, plus the legacy `contentRoutes`
+  array)
 - `@mrmx/chiqui/components` — `Header`, `Footer`, `Hero`, `Carousel`, `LanguageSelect`, `LightDarkMode`, `Icon`, `NavLink`, `SiteLogo`
-- `@mrmx/chiqui/navigation` — navigation helpers
-- `@mrmx/chiqui/vite` — `chiquiViteConfig()` for `vite.config.ts`
-- `@mrmx/chiqui/svelte-config` — `createSvelteConfig()` for `svelte.config.js`
+  - `Header` renders `Group` nav nodes as a DaisyUI dropdown submenu (`<details>` inside
+    `menu menu-horizontal`), not just flat `Link`s.
+- `@mrmx/chiqui/navigation` — `getLevelContentEntries()` (returns `NavItem[]`, see Breaking
+  Changes below), `PartialSlugOptions`, `NavItem`
+- `@mrmx/chiqui/vite` — `chiquiViteConfig()` for `vite.config.ts` (deep-merges `options.vite`
+  via Vite's own `mergeConfig` instead of a shallow spread)
+- `@mrmx/chiqui/svelte-config` — `createSvelteConfig()` for `svelte.config.js`, fully typed
+  (`Adapter`, `Config` from `@sveltejs/kit`; no `any` in its public signature)
 - `@mrmx/chiqui/types` — bare types entry point
+
+## Breaking Changes
+
+- **0.2.0 (unreleased)** — `getLevelContentEntries()` now returns `NavItem[]`
+  (`{ lang, slug, title }`) instead of a fabricated `ContentEntry[]` that lacked a real
+  `component`/`metadata.id`. If you called `.component` or `.metadata` on its results,
+  update to the flat `.title` field instead.
 
 ## Working Example
 

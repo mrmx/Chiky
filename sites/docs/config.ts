@@ -19,6 +19,17 @@ const config: AppConfig = {
 					{ name: 'Docs', href: '/en/docs' },
 					{ name: 'About', href: '/en/about' },
 					{
+						name: 'Resources',
+						items: [
+							{
+								name: 'Changelog',
+								href: 'https://github.com/mrmx/Chiqui/releases',
+								target: extTarget
+							},
+							{ name: 'Issues', href: 'https://github.com/mrmx/Chiqui/issues', target: extTarget }
+						]
+					},
+					{
 						name: '',
 						title: 'GitHub',
 						icon: 'streamline-logos:github-logo-2',
@@ -29,6 +40,21 @@ const config: AppConfig = {
 				es: [
 					{ name: 'Docs', href: '/es/docs' },
 					{ name: 'Acerca de', href: '/es/acerca' },
+					{
+						name: 'Recursos',
+						items: [
+							{
+								name: 'Cambios',
+								href: 'https://github.com/mrmx/Chiqui/releases',
+								target: extTarget
+							},
+							{
+								name: 'Incidencias',
+								href: 'https://github.com/mrmx/Chiqui/issues',
+								target: extTarget
+							}
+						]
+					},
 					{
 						name: '',
 						title: 'GitHub',

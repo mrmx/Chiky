@@ -48,7 +48,7 @@ describe('getLevelContentEntries — level 0', () => {
 	it('title is lang.toUpperCase()', () => {
 		const results = getLevelContentEntries(0, allEntries);
 		for (const r of results) {
-			expect(r.metadata?.title).toBe(r.lang.toUpperCase());
+			expect(r.title).toBe(r.lang.toUpperCase());
 		}
 	});
 
@@ -88,14 +88,14 @@ describe('getLevelContentEntries — level 1', () => {
 		const results = getLevelContentEntries(1, [enDocs], { lang: 'en' });
 		const docsEntry = results.find((r) => r.slug === '/en/docs');
 		expect(docsEntry).toBeDefined();
-		expect(docsEntry?.metadata?.title).toBe('Documentation');
+		expect(docsEntry?.title).toBe('Documentation');
 	});
 
 	it('falls back to slugToTitle when no metadata title', () => {
 		const entry = makeEntry('en', 'my-page', undefined, 'my-page');
 		const results = getLevelContentEntries(1, [entry], { lang: 'en' });
 		expect(results).toHaveLength(1);
-		expect(results[0].metadata?.title).toBe('My Page');
+		expect(results[0].title).toBe('My Page');
 	});
 
 	it('does not include index/empty segments unless includeIndex=true', () => {
@@ -122,7 +122,7 @@ describe('getLevelContentEntries — level 1', () => {
 
 	it('is sorted by title by default', () => {
 		const results = getLevelContentEntries(1, allEntries, { lang: 'en' });
-		const titles = results.map((r) => r.metadata?.title ?? '');
+		const titles = results.map((r) => r.title ?? '');
 		const sorted = [...titles].sort((a, b) => a.localeCompare(b));
 		expect(titles).toEqual(sorted);
 	});
@@ -135,8 +135,8 @@ describe('getLevelContentEntries — level 1', () => {
 		// They should differ if the natural insertion order != alphabetical order
 		// guide comes before about alphabetically? No: A < D < G.
 		// So sorted = [About, Documentation, Guide/Faq(→guide)], unsorted = [guide, about, docs]
-		const sortedTitles = resultsSorted.map((r) => r.metadata?.title ?? '');
-		const unsortedTitles = resultsUnsorted.map((r) => r.metadata?.title ?? '');
+		const sortedTitles = resultsSorted.map((r) => r.title ?? '');
+		const unsortedTitles = resultsUnsorted.map((r) => r.title ?? '');
 		expect(sortedTitles).toEqual([...unsortedTitles].sort((a, b) => a.localeCompare(b)));
 	});
 });
@@ -169,5 +169,24 @@ describe('getLevelContentEntries — error handling', () => {
 
 	it('throws for level -100', () => {
 		expect(() => getLevelContentEntries(-100, [])).toThrow('Level must be >= 0');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// NavItem shape — results are plain NavItem objects, not fabricated ContentEntry
+// ---------------------------------------------------------------------------
+describe('getLevelContentEntries — NavItem shape', () => {
+	it('returns objects with only lang/slug/title (no component, no metadata)', () => {
+		const [result] = getLevelContentEntries(1, [enAbout], { lang: 'en' });
+		expect(Object.keys(result).sort()).toEqual(['lang', 'slug', 'title']);
+		expect(result).not.toHaveProperty('component');
+		expect(result).not.toHaveProperty('metadata');
+	});
+
+	it('title is always a plain string', () => {
+		const results = getLevelContentEntries(0, allEntries);
+		for (const r of results) {
+			expect(typeof r.title).toBe('string');
+		}
 	});
 });

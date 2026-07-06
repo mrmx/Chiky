@@ -18,6 +18,7 @@
  * export default createSvelteConfig(adapter, vitePreprocess, mdsvex);
  * ```
  */
+import type { Adapter, Config } from '@sveltejs/kit';
 
 export interface ChiquiSvelteConfigOptions {
 	/** Extra aliases beyond $config */
@@ -32,13 +33,18 @@ export interface ChiquiSvelteConfigOptions {
  * this function just wires it into `kit.adapter`. Pass `@sveltejs/adapter-static` for a
  * fully static site; no extra `fallback`/`strict` options are required here as long as the
  * consumer prerenders every route it wants generated (see the module doc above).
+ *
+ * `vitePreprocess` and `mdsvex` are typed against `@sveltejs/vite-plugin-svelte` and
+ * `mdsvex` respectively — both are devDependencies here purely for their type
+ * declarations (type-only imports are erased at build time); the actual functions are
+ * always supplied by the consumer, who already depends on both packages directly.
  */
 export function createSvelteConfig(
-	adapter: any,
-	vitePreprocess: any,
-	mdsvex: any,
+	adapter: () => Adapter,
+	vitePreprocess: typeof import('@sveltejs/vite-plugin-svelte').vitePreprocess,
+	mdsvex: typeof import('mdsvex').mdsvex,
 	options: ChiquiSvelteConfigOptions = {}
-) {
+): Config {
 	const mdsvexOptions = { extensions: ['.md'] };
 
 	return {

@@ -35,17 +35,21 @@ Exports via subpath exports (`@mrmx/chiqui`, `@mrmx/chiqui/config`, `@mrmx/chiqu
 Key design decisions:
 
 - **`initConfig(rawConfig)`** — consumer provides their AppConfig, chiqui caches and exposes helpers (siteName, navItems, etc.)
-- **`createContent(modules)`** — factory that takes `import.meta.glob` result from the consumer (Vite glob must run in consumer context)
-- **`createSvelteConfig(adapter, vitePreprocess, mdsvex)`** — generates standard SvelteKit config
-- **`chiquiViteConfig()`** — returns Vite config with test/coverage defaults
-- Components use `$lib/` imports internally (resolved by svelte-package during build)
+- **`createContent(modules)`** — factory that takes `import.meta.glob` result from the consumer (Vite glob must run in consumer context). `getContent(lang, slug)` is an O(1) lookup against `index.bySlug` (not a linear `Array.find`).
+- **`createSvelteConfig(adapter, vitePreprocess, mdsvex)`** — generates standard SvelteKit config; fully typed (`adapter: () => Adapter`, return type `Config` from `@sveltejs/kit`), no `any` in its signature
+- **`chiquiViteConfig()`** — returns Vite config with test/coverage defaults; merges `options.vite` with Vite's own `mergeConfig` (deep merge) instead of a shallow `...spread`, so nested keys like `server.fs.allow` survive a caller passing e.g. `vite: { server: {...} }`
+- **`getLevelContentEntries()`** (in `@mrmx/chiqui/navigation`) returns `NavItem[]` (`{ lang, slug, title }`), a dedicated synthetic-nav-node type — not a fabricated `ContentEntry` (which would lie about having a real `component`/`metadata.id`)
+- Components use `$lib/` imports internally (resolved by svelte-package during build). `Header` renders `Group` nav nodes as a DaisyUI dropdown submenu (`<details>` inside `menu menu-horizontal`, recursive for nested groups) instead of silently dropping them; it uses `$app/state` (not the deprecated `$app/stores`), consistent with `LanguageSelect`.
 
 ### Consumer pattern (sites/docs shows the canonical example)
 
 1. `config.ts` (root) — site-specific AppConfig (name, logo, nav, i18n)
 2. `src/lib/config.ts` — calls `initConfig(rawConfig)` and re-exports helpers
 3. `src/lib/content.ts` — calls `createContent(import.meta.glob(...))` and re-exports
-4. `src/hooks.server.ts` — imports config (triggers init) + validates content
+4. `src/hooks.server.ts` — imports config (triggers init) + calls `assertValidIndex()` in
+   the `init` hook so invalid content (duplicate ids, missing frontmatter, ...) throws and
+   aborts the build/prerender instead of just logging. `console.log` content dumps are
+   gated behind `dev` from `$app/environment` (never printed in a production build).
 5. Routes import from `$lib/config` and `$lib/content` (the site's thin wrappers)
 6. Layout uses `<Header />` and `<Footer />` from `@mrmx/chiqui/components`
 
@@ -67,7 +71,9 @@ Chiqui sites are genuinely static: `sites/docs` uses `@sveltejs/adapter-static` 
 ### Content system
 
 - Markdown files in `content/{lang}/{slug}.md` with frontmatter `id` (canonical cross-language identifier)
-- Build-time validation: unique slugs per lang, unique (id, lang) pairs
+- Build-time validation: unique slugs per lang, unique (id, lang) pairs. `validateIndex()`
+  logs and returns `boolean` (never throws, kept for compat); `assertValidIndex()` throws
+  with the accumulated error list — use this one in `hooks.server.ts` so a bad build fails.
 - i18n via `getTranslatedSlug()` using canonical IDs
 - `contentEntries()` derives `{ lang, slug }[]` from loaded content for use in SvelteKit's
   `entries()` (the active way to feed prerendering); `contentRoutes` (`/{lang}/{slug}` strings)
