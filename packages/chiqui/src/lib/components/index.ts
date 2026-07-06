@@ -1,5 +1,8 @@
 export { default as Carousel } from './Carousel.svelte';
+export { default as ContactForm } from './ContactForm.svelte';
+export { default as CtaBand } from './CtaBand.svelte';
 export { default as Footer } from './Footer.svelte';
+export { default as Gallery } from './Gallery.svelte';
 export { default as Header } from './Header.svelte';
 export { default as Hero } from './Hero.svelte';
 export { default as Icon } from './Icon.svelte';
@@ -8,3 +11,4 @@ export { default as LightDarkMode } from './LightDarkMode/LightDarkMode.svelte';
 export { default as NavLink } from './NavLink.svelte';
 export { default as Seo } from './Seo.svelte';
 export { default as SiteLogo } from './SiteLogo.svelte';
+export { default as SpecsTable } from './SpecsTable.svelte';

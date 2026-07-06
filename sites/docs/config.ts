@@ -21,6 +21,7 @@ const config: AppConfig = {
 			items: {
 				en: [
 					{ name: 'Docs', href: '/en/docs' },
+					{ name: 'Components', href: '/en/components' },
 					{ name: 'About', href: '/en/about' },
 					{
 						name: 'Resources',
@@ -43,6 +44,7 @@ const config: AppConfig = {
 				],
 				es: [
 					{ name: 'Docs', href: '/es/docs' },
+					{ name: 'Componentes', href: '/es/componentes' },
 					{ name: 'Acerca de', href: '/es/acerca' },
 					{
 						name: 'Recursos',

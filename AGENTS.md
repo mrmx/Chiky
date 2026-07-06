@@ -60,6 +60,17 @@ Key design decisions:
   `generateSitemapXml`'s `<loc>` avoid this by building a clean path directly
   (`buildCanonicalPath()`), but the hreflang `<link>`/`<xhtml:link>` tags themselves still
   carry it, since GOAL-05 keeps `getHreflangAlternates`'s signature/behavior untouched.
+- **Content components** (`Gallery`, `SpecsTable`, `CtaBand`, `ContactForm` in
+  `@mrmx/chiqui/components`) — generic, brand-free rich-content components meant to be used
+  directly inside a `.md` file via mdsvex (a top-level `<script>` block in the `.md` behaves
+  like one in a `.svelte` file, so components can be imported and given inline data right
+  there — see `sites/docs/content/en/components.md`). `Gallery`'s video-vs-image detection
+  (`isVideoSrc()`, by `.mp4`/`.webm` extension, ignoring query/hash) lives in `src/lib/media.ts`;
+  `ContactForm`'s access-key/FormData/status logic (`isAccessKeyConfigured()`,
+  `buildContactFormData()`, `resolveSubmitStatus()`) lives in `src/lib/contact-form.ts` — both
+  pure and unit-tested directly, same rationale as `src/lib/seo.ts` (no component-render test
+  harness in this package). `ContactForm` degrades cleanly (`labels.notConnected`, no request
+  sent) when `accessKey` is missing/blank.
 
 ### Consumer pattern (sites/docs shows the canonical example)
 
@@ -86,10 +97,10 @@ Chiqui sites are genuinely static: `sites/docs` uses `@sveltejs/adapter-static` 
   defaultLang home page, same as `/{defaultLang}`).
 - `pnpm --filter docs build` (or root `pnpm build`) emits static HTML into
   `sites/docs/build/` — one file per lang/slug combination (e.g. `index.html`, `en.html`,
-  `en/about.html`, `es/acerca.html`) — 7 HTML files for the current content set, plus a
-  prerendered `sitemap.xml` (`src/routes/sitemap.xml/+server.ts`, `export const prerender =
-  true`, no `entries()` needed since it's a static route name) and a static `robots.txt`
-  (`static/robots.txt`).
+  `en/about.html`, `es/acerca.html`, `en/components.html`, `es/componentes.html`) — 9 HTML
+  files for the current content set, plus a prerendered `sitemap.xml`
+  (`src/routes/sitemap.xml/+server.ts`, `export const prerender = true`, no `entries()` needed
+  since it's a static route name) and a static `robots.txt` (`static/robots.txt`).
 - `src/routes/+error.svelte` handles in-app errors (e.g. an unknown slug's `load()` throwing
   `error(404, ...)`), but `adapter-static` does **not** emit a `404.html` fallback by
   default — see the README's SEO section (404 page) for the `fallback`/`strict` adapter

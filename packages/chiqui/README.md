@@ -23,6 +23,8 @@ Peer dependencies: `@sveltejs/kit ^2`, `svelte ^5`.
 - SvelteKit static generation with [mdsvex](https://github.com/pngwn/MDsveX).
 - Type-safe site config for metadata, languages, and navigation.
 - Header, footer, logo, language selector, theme toggle, hero, carousel, and icon components.
+- Generic rich-content components — `Gallery`, `SpecsTable`, `CtaBand`, `ContactForm` — usable
+  straight from Markdown via mdsvex.
 - Content validation for duplicate routes, missing IDs, and translation lookup issues.
 - Shared Vite and Svelte config helpers for consistent consumer projects.
 
@@ -401,6 +403,115 @@ unmatched static path. `strict: false` is required alongside `fallback` because 
 adapter-static's all-routes-must-be-prerendered check. Chiqui's own docs site does not enable
 this by default, so verify the interaction with `strict` for your own routes before shipping it.
 
+## Content components
+
+Four generic, DaisyUI-styled components for product/marketing content, meant to be dropped
+directly inside a `.md` file via mdsvex (not just `.svelte` files) — see the recipe at the end
+of this section. None of them carry any product- or brand-specific copy; all text comes in
+through props.
+
+### `<Gallery>`
+
+- `items: Array<{ src: string; alt: string; caption?: string }>`
+- Renders a responsive grid. Each item is shown as `<video autoplay muted loop playsinline
+preload="metadata">` when `src` ends in `.mp4`/`.webm` (query strings/hash fragments are
+  ignored, so `clip.mp4?v=2` still counts), otherwise `<img loading="lazy">`. The detection
+  itself is a pure, exported function — `isVideoSrc(src)` from `@mrmx/chiqui` internals
+  (`src/lib/media.ts`) — unit-tested directly (`tests/media.test.ts`) since this package has
+  no component-render test harness (same rationale as `<Seo>`'s `src/lib/seo.ts`).
+
+### `<SpecsTable>`
+
+- `specs: Array<{ label: string; value: string }>`
+- Renders a DaisyUI `table`. The framework has no opinion on language — resolve `label` (and
+  `value`, if it needs translating) to the current locale before passing the array in.
+
+### `<CtaBand>`
+
+- `title: string`, `subtitle?: string`, and a `children` snippet for the call-to-action
+  buttons (Svelte 5's `{#snippet}`/`{@render}`, not a slot).
+- Renders a centered closing band; put `<a class="btn ...">` elements in `children`.
+
+### `<ContactForm>`
+
+- `endpoint?: string` — defaults to the Web3Forms submit endpoint
+  (`https://api.web3forms.com/submit`); pass your own for a different backend that accepts the
+  same `FormData` shape.
+- `accessKey?: string` — a Web3Forms (or compatible) public access key. **If omitted or
+  blank, the form does not send anything** — submit shows `labels.notConnected` instead. This
+  is deliberate clean degradation for a site that hasn't wired up a real key yet.
+- `subject?: string` — optional hidden `subject` field value.
+- `labels?: Partial<ContactFormLabels>` — every piece of copy (`title?`, `subtitle?`, `name`,
+  `email`, `message`, `send`, `sending`, `success`, `error`, `notConnected`), merged over
+  English defaults (`defaultContactFormLabels`). The framework imposes no i18n scheme on the
+  form; pass your own resolved strings per language.
+- Fields: `name`, `email`, `message`, plus a hidden honeypot checkbox (`botcheck`) — if a bot
+  fills it, submit is silently short-circuited to the success state without calling `fetch`.
+  On submit it `POST`s a `FormData` (built by the pure, testable `buildContactFormData()` in
+  `src/lib/contact-form.ts`) with `Accept: application/json`, tracks
+  `idle`/`sending`/`success`/`error`/`not-connected` state, disables the submit button while
+  `sending`, and calls `form.reset()` on success. The status message is
+  `role="status" aria-live="polite"` so screen readers announce it. `resolveSubmitStatus(ok,
+data)` (also in `src/lib/contact-form.ts`) is the pure function that turns the fetch
+  response into `'success' | 'error'` — see `tests/contact-form.test.ts`.
+
+### The mdsvex recipe
+
+Content components are designed to be imported and used **inside a `.md` file**, in a
+top-level `<script>` block — mdsvex compiles markdown to a Svelte component, so a `<script>`
+block in a `.md` file behaves exactly like one in a `.svelte` file, and any capitalized tag in
+the body (e.g. `<Gallery ...>`) is treated as a component reference, not literal text:
+
+```md
+---
+id: components
+title: Content Components
+description: Product content components, demoed live.
+---
+
+<script>
+	import { Gallery, SpecsTable, CtaBand, ContactForm } from '@mrmx/chiqui/components';
+
+	const items = [
+		{ src: '/img/product-front.jpg', alt: 'Product, front view' },
+		{ src: '/media/demo.mp4', alt: 'Product demo clip' }
+	];
+
+	const specs = [
+		{ label: 'Weight', value: '120 g' },
+		{ label: 'Battery', value: '2000 mAh' }
+	];
+</script>
+
+## Gallery
+
+<Gallery {items} />
+
+## Specs
+
+<SpecsTable {specs} />
+
+## Get in touch
+
+<CtaBand title="Ready to order?" subtitle="Reach out and we'll get back to you.">
+	{#snippet children()}
+		<a class="btn btn-primary" href="/en/contact">Contact us</a>
+	{/snippet}
+</CtaBand>
+
+<ContactForm accessKey="YOUR_WEB3FORMS_KEY" subject="New inquiry" />
+```
+
+Data (`items`, `specs`) lives inline in the `<script>` block rather than frontmatter, since
+frontmatter is plain YAML (strings/numbers/booleans) — it has no way to express arrays of
+objects cleanly, and mdsvex already gives every `.md` file a real Svelte `<script>` context for
+free. Frontmatter stays reserved for what it's good at: `id`, `title`, `description`, and other
+flat metadata consumed outside the component tree (`<Seo>`, navigation, `sitemap.xml`). See
+[`sites/docs/content/en/components.md`](https://github.com/mrmx/Chiqui/tree/main/sites/docs/content/en/components.md)
+(and its `es/componentes.md` translation) for the full working demo that this snippet is
+based on — it renders both an image and a video `<Gallery>` item, `<SpecsTable>`, `<CtaBand>`,
+and an unconnected `<ContactForm>` in the actual static build.
+
 ## Package Exports
 
 - `@mrmx/chiqui` — types (`AppConfig`, `Link`, `Group`, `NavNode`, `ContentEntry`, `NavItem`)
@@ -409,11 +520,13 @@ this by default, so verify the interaction with `strict` for your own routes bef
   `entries()` in prerendered dynamic routes, `getContent()` for an O(1) indexed lookup,
   `assertValidIndex()` for strict build-time validation, plus the legacy `contentRoutes`
   array)
-- `@mrmx/chiqui/components` — `Header`, `Footer`, `Hero`, `Carousel`, `LanguageSelect`, `LightDarkMode`, `Icon`, `NavLink`, `Seo`, `SiteLogo`
+- `@mrmx/chiqui/components` — `Header`, `Footer`, `Hero`, `Carousel`, `LanguageSelect`, `LightDarkMode`, `Icon`, `NavLink`, `Seo`, `SiteLogo`, `Gallery`, `SpecsTable`, `CtaBand`, `ContactForm`
   - `Header` renders `Group` nav nodes as a DaisyUI dropdown submenu (`<details>` inside
     `menu menu-horizontal`), not just flat `Link`s.
   - `Seo` renders per-page `<title>`, canonical, hreflang (+ `x-default`), OG, and Twitter
     card tags — see the SEO section above.
+  - `Gallery`, `SpecsTable`, `CtaBand`, `ContactForm` — generic rich-content components meant
+    to be used inside `.md` files via mdsvex — see the Content components section above.
 - `@mrmx/chiqui/navigation` — `getLevelContentEntries()` (returns `NavItem[]`, see Breaking
   Changes below), `PartialSlugOptions`, `NavItem`
 - `@mrmx/chiqui/hooks` — `createLangHandle()` for `hooks.server.ts` (rewrites the `%lang%`
