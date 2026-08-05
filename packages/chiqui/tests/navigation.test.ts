@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { getLevelContentEntries } from '../src/lib/navigation.js';
+import { describe, it, expect, vi } from 'vitest';
+import { getLevelContentEntries, createDocsNav, createDocsSection } from '../src/lib/navigation.js';
+import { createContent } from '../src/lib/content.js';
 import type { ContentEntry } from '../src/lib/types.js';
 import type { Component } from 'svelte';
 
@@ -188,5 +189,153 @@ describe('getLevelContentEntries — NavItem shape', () => {
 		for (const r of results) {
 			expect(typeof r.title).toBe('string');
 		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// createDocsNav
+// ---------------------------------------------------------------------------
+describe('createDocsNav', () => {
+	const FakeComponent = {} as Component;
+	const mod = (title: string, extra: Record<string, unknown> = {}) => ({
+		metadata: { title, ...extra },
+		default: FakeComponent
+	});
+
+	// en: three docs, ordered by `order` (strategies has none → sorts last, alphabetically).
+	// es: only `getting-started` is translated — laboratory/strategies should fall back.
+	const store = createContent({
+		'/content/en/getting-started.md': mod('Getting started', { order: 1 }),
+		'/content/en/laboratory.md': mod('Laboratory', { order: 2 }),
+		'/content/en/strategies.md': mod('Strategies'),
+		'/content/es/getting-started.md': mod('Primeros pasos', { order: 1 })
+	});
+	const nav = createDocsNav(store, { defaultLang: 'en' });
+
+	it('orders navFor by `order` frontmatter, undefined last, then alphabetically', () => {
+		expect(nav.navFor('en').map((e) => e.slug)).toEqual([
+			'getting-started',
+			'laboratory',
+			'strategies'
+		]);
+	});
+
+	it('navFor uses the translated title and untranslated: false when a translation exists', () => {
+		const entry = nav.navFor('es').find((e) => e.slug === 'getting-started');
+		expect(entry).toEqual({ slug: 'getting-started', title: 'Primeros pasos', untranslated: false });
+	});
+
+	it('navFor falls back to the default-locale title and flags untranslated: true otherwise', () => {
+		const entry = nav.navFor('es').find((e) => e.slug === 'laboratory');
+		expect(entry).toEqual({ slug: 'laboratory', title: 'Laboratory', untranslated: true });
+	});
+
+	it('resolve returns the translation with untranslated: false when it exists', () => {
+		const doc = nav.resolve('es', 'getting-started');
+		expect(doc?.lang).toBe('es');
+		expect(doc?.metadata.title).toBe('Primeros pasos');
+		expect(doc?.untranslated).toBe(false);
+	});
+
+	it('resolve falls back to defaultLang and flags untranslated: true when missing', () => {
+		const doc = nav.resolve('es', 'laboratory');
+		expect(doc?.lang).toBe('en');
+		expect(doc?.metadata.title).toBe('Laboratory');
+		expect(doc?.untranslated).toBe(true);
+	});
+
+	it('resolve returns undefined for a slug that does not exist in any language', () => {
+		expect(nav.resolve('en', 'nonexistent')).toBeUndefined();
+	});
+
+	it('neighbors returns previous/next in navFor order', () => {
+		expect(nav.neighbors('en', 'laboratory')).toEqual({
+			previous: { slug: 'getting-started', title: 'Getting started', untranslated: false },
+			next: { slug: 'strategies', title: 'Strategies', untranslated: false }
+		});
+	});
+
+	it('neighbors omits previous at the start and next at the end', () => {
+		expect(nav.neighbors('en', 'getting-started').previous).toBeUndefined();
+		expect(nav.neighbors('en', 'strategies').next).toBeUndefined();
+	});
+
+	it('defaultSlug is the first default-locale doc after sorting', () => {
+		expect(nav.defaultSlug).toBe('getting-started');
+	});
+
+	it('hasSlug is locale-independent', () => {
+		expect(nav.hasSlug('strategies')).toBe(true);
+		expect(nav.hasSlug('nonexistent')).toBe(false);
+	});
+
+	it('filter restricts the doc set to a subset of the store', () => {
+		const mixedStore = createContent({
+			'/content/en/getting-started.md': mod('Getting started', { order: 1, section: 'docs' }),
+			'/content/en/pricing.md': mod('Pricing', { section: 'marketing' })
+		});
+		const docsOnly = createDocsNav(mixedStore, {
+			defaultLang: 'en',
+			filter: (e) => e.metadata.section === 'docs'
+		});
+		expect(docsOnly.navFor('en').map((e) => e.slug)).toEqual(['getting-started']);
+		expect(docsOnly.hasSlug('pricing')).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// createDocsSection
+// ---------------------------------------------------------------------------
+describe('createDocsSection', () => {
+	const FakeComponent = {} as Component;
+	const mod = (title: string, extra: Record<string, unknown> = {}) => ({
+		metadata: { title, ...extra },
+		default: FakeComponent
+	});
+
+	it('wires createContent + createDocsNav in one call, honoring basePath', () => {
+		const docs = createDocsSection(
+			{ './content/en/getting-started.md': mod('Getting started', { order: 1 }) },
+			{ basePath: './content/', defaultLang: 'en' }
+		);
+		expect(docs.navFor('en')).toEqual([
+			{ slug: 'getting-started', title: 'Getting started', untranslated: false }
+		]);
+		expect(docs.defaultSlug).toBe('getting-started');
+	});
+
+	it('exposes the underlying store for lower-level needs', () => {
+		const docs = createDocsSection(
+			{ './content/en/getting-started.md': mod('Getting started') },
+			{ basePath: './content/', defaultLang: 'en' }
+		);
+		expect(docs.store.getContent('en', 'getting-started')).toBeDefined();
+	});
+
+	it('is strict by default: throws on invalid content instead of silently indexing it', () => {
+		expect(() =>
+			createDocsSection(
+				{
+					'./content/en/a.md': { metadata: { id: 'dup' }, default: FakeComponent },
+					'./content/en/b.md': { metadata: { id: 'dup' }, default: FakeComponent }
+				},
+				{ basePath: './content/', defaultLang: 'en' }
+			)
+		).toThrow(/\[E:id-lang-dup\]/);
+	});
+
+	it('strict: false only logs, never throws, on invalid content', () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		expect(() =>
+			createDocsSection(
+				{
+					'./content/en/a.md': { metadata: { id: 'dup' }, default: FakeComponent },
+					'./content/en/b.md': { metadata: { id: 'dup' }, default: FakeComponent }
+				},
+				{ basePath: './content/', defaultLang: 'en', strict: false }
+			)
+		).not.toThrow();
+		expect(consoleErrorSpy).toHaveBeenCalled();
+		consoleErrorSpy.mockRestore();
 	});
 });
