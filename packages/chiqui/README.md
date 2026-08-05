@@ -6,7 +6,7 @@
 
 Content-driven SvelteKit SSG framework with i18n, mdsvex content pipeline, and DaisyUI components.
 
-Chiqui is a lightweight static site generator built on top of [SvelteKit](https://svelte.dev/docs/kit). It is designed for small product sites, documentation sites, and multilingual static websites where Markdown content is the source of truth.
+Chiqui is a content-driven Markdown/i18n toolkit built on top of [SvelteKit](https://svelte.dev/docs/kit). Its most common shape is a small, fully static, multilingual product or documentation site (see [Quick Start](#quick-start)) — but static prerendering is a per-route choice made by the consumer's own SvelteKit config, not something the package enforces, and the content engine (`@mrmx/chiqui/content`, `/navigation`, `/config`) has no dependency on the DaisyUI-based UI components. See [Headless usage](#headless-usage) for embedding just the content engine inside a larger, dynamic app.
 
 ## Install
 
@@ -29,6 +29,35 @@ Peer dependencies: `@sveltejs/kit ^2`, `svelte ^5`.
 - Shared Vite and Svelte config helpers for consistent consumer projects.
 
 ## Quick Start
+
+The steps below build up to this file layout (matching `sites/docs`, the working example —
+see [Working Example](#working-example)):
+
+```txt
+my-site/
+├── config.ts                              # 1. site/i18n/nav config
+├── content/
+│   ├── en/index.md                        # 5. Markdown content, one tree per language
+│   └── es/index.md
+├── static/
+│   └── robots.txt                         # SEO §5
+├── src/
+│   ├── app.html                           # SEO §3 (%lang% placeholder)
+│   ├── hooks.server.ts                    # 6. assertValidIndex() + SEO §3 createLangHandle()
+│   ├── lib/
+│   │   ├── config.ts                      # 2. initConfig() + re-exports
+│   │   └── content.ts                     # 3. createContent()
+│   └── routes/
+│       ├── +layout.ts                     # 7. export const prerender = true
+│       ├── +layout.svelte                 # 4. <Layout> (or your own Header/main/Footer)
+│       ├── +error.svelte                  # SEO §6, optional
+│       ├── sitemap.xml/+server.ts         # SEO §4
+│       └── [[lang]]/[...slug]/
+│           ├── +page.ts                   # 5. load() + entries() (7. for adapter-static)
+│           └── +page.svelte               # 5. <Seo> + the loaded content component
+├── svelte.config.js                       # 7. createSvelteConfig()
+└── vite.config.ts                         # chiquiViteConfig()
+```
 
 ### 1. Root `config.ts`
 
@@ -93,6 +122,30 @@ export const {
 
 ### 4. Layout
 
+`src/routes/+layout.svelte` — **`<Layout>` is the zero-config option**: the whole page shell
+(`<Header>` on top, a scrollable `<main>` wrapped in `prose` for your Markdown content,
+`<Footer>` pinned to the bottom, each conditional on `showHeader()`/`showFooter()`), prebuilt
+in one component:
+
+```svelte
+<script lang="ts">
+	import '@mrmx/chiqui/style.css';
+	import { Layout } from '@mrmx/chiqui/components';
+	import { getTranslatedSlug } from '$lib/content';
+
+	let { children } = $props();
+</script>
+
+<Layout {getTranslatedSlug}>
+	{@render children?.()}
+</Layout>
+```
+
+That's the entire file — no other markup or CSS needed (this is exactly what `sites/docs`
+does). Reach instead for `<Header>`/`<Footer>` as loose pieces, composed yourself, if you want
+your own page structure or only embed chiqui in *part* of a larger app (see
+[Headless usage](#headless-usage)):
+
 ```svelte
 <script lang="ts">
 	import { Header, Footer } from '@mrmx/chiqui/components';
@@ -112,6 +165,12 @@ export const {
 	<Footer />
 {/if}
 ```
+
+> **`<Layout>`/`<Header>`/`<Footer>` (and every other `@mrmx/chiqui/components` export) render
+> unstyled — broken-looking — until you load CSS for them.** They're built on fixed DaisyUI
+> class names (`navbar`, `btn`, `dropdown`, ...); nothing here works without DaisyUI's CSS
+> present. See [Styling `@mrmx/chiqui/components`](#styling-mrmxchiquicomponents) below for the
+> two ways to get it — a zero-config stylesheet import, or your own Tailwind + DaisyUI setup.
 
 ### 5. Content
 
@@ -140,6 +199,66 @@ content/en/about.md  -> /en/about
 content/es/acerca.md -> /es/acerca
 content/en/index.md  -> /en
 ```
+
+A single dynamic route serves every page — `src/routes/[[lang]]/[...slug]/+page.ts` loads the
+matching entry (`entries()` here is also what step 7's `adapter-static` build reads to know
+which `lang`/`slug` combinations to prerender):
+
+```ts
+// src/routes/[[lang]]/[...slug]/+page.ts
+import { error } from '@sveltejs/kit';
+import { getContent, contentEntries } from '$lib/content';
+import { defaultLang } from '$lib/config';
+
+export function entries() {
+	// contentEntries() covers every `/{lang}/{slug}` page. The bare `/` root needs an
+	// explicit empty-lang entry so it's prerendered too (it renders the defaultLang home
+	// page — see load() below).
+	return [{ lang: '', slug: '' }, ...contentEntries()];
+}
+
+export function load({ params }) {
+	let { lang = '', slug } = params;
+	if (lang === '') lang = defaultLang();
+
+	const entry = getContent(lang, slug);
+	if (!entry) throw error(404, 'Not found');
+
+	return { lang, slug, metadata: entry.metadata, component: entry.component };
+}
+```
+
+```svelte
+<!-- src/routes/[[lang]]/[...slug]/+page.svelte -->
+<script lang="ts">
+	import type { PageProps } from './$types';
+	import { Seo } from '@mrmx/chiqui/components';
+	import { getHreflangAlternates } from '$lib/content';
+
+	let { data }: PageProps = $props();
+	let metadata = $derived(data.metadata);
+	let Page = $derived(data.component);
+</script>
+
+<Seo
+	lang={data.lang}
+	slug={data.slug}
+	title={metadata?.title}
+	description={metadata?.description}
+	image={metadata?.image}
+	{getHreflangAlternates}
+/>
+
+{#if metadata?.title}
+	<h1>{metadata.title}</h1>
+{/if}
+
+<Page />
+```
+
+`entry.component` is the Markdown file compiled to a Svelte component by mdsvex (wired in by
+`createSvelteConfig`/`createChiquiPreprocessor` — see step 7) — rendering `<Page />` is what
+actually puts your Markdown's HTML on the page, inside `<Layout>`'s `<main>` from step 4.
 
 ### 6. Validate content at build time
 
@@ -178,10 +297,51 @@ pnpm add -D @sveltejs/adapter-static
 // svelte.config.js
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import { mdsvex } from 'mdsvex';
 import { createSvelteConfig } from '@mrmx/chiqui/svelte-config';
 
-export default createSvelteConfig(adapter, vitePreprocess, mdsvex);
+export default createSvelteConfig(adapter, vitePreprocess);
+```
+
+`mdsvex` itself doesn't need installing or importing — chiqui *is* an mdsvex content pipeline
+(see Features above), so it's a real dependency of `@mrmx/chiqui` and `createSvelteConfig`
+wires it in for you. Pass `mdsvexOptions` to override its defaults (a layout wrapper,
+remark/rehype plugins, custom `extensions`):
+
+```js
+export default createSvelteConfig(adapter, vitePreprocess, {
+	mdsvexOptions: { extensions: ['.md'], layout: { _: './src/lib/DocArticle.svelte' } }
+});
+```
+
+For anything `aliases`/`mdsvexOptions` don't cover (extra `kit.*` fields, a fully custom
+`preprocess` pipeline instead of mdsvex, custom `extensions`), pass `overrides` — merged over
+the generated config last (`kit.alias` merges, everything else replaces outright):
+
+```js
+export default createSvelteConfig(adapter, vitePreprocess, {
+	overrides: { kit: { env: { publicPrefix: 'PUBLIC_' } } }
+});
+```
+
+**A site where chiqui only powers one section, not the whole app**, shouldn't reach for
+`createSvelteConfig` at all — it makes the *entire* app's SvelteKit config depend on chiqui's
+opinion of `kit.adapter`/`kit.alias`/`extensions`, for the sake of one section. Use
+`createChiquiPreprocessor` instead, and keep owning `svelte.config.js` yourself:
+
+```js
+// svelte.config.js — an app chiqui doesn't own; only /docs uses it
+import adapter from '@sveltejs/adapter-auto';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { createChiquiPreprocessor } from '@mrmx/chiqui/svelte-config';
+
+export default {
+	extensions: ['.svelte', '.md'],
+	preprocess: [
+		vitePreprocess(),
+		createChiquiPreprocessor({ extensions: ['.md'], layout: { _: './src/lib/docs/DocArticle.svelte' } })
+	],
+	kit: { adapter: adapter(), alias: { $lib: './src/lib' /* ...your own aliases */ } }
+};
 ```
 
 Opt every route into prerendering:
@@ -217,6 +377,66 @@ export function load({ params }) {
 
 `pnpm build` then emits a fully static `build/` directory (`index.html`, `en.html`,
 `en/about.html`, `es/acerca.html`, ...) that can be served from any static host.
+
+## Styling `@mrmx/chiqui/components`
+
+`Header`, `Footer`, `NavLink`, `LanguageSelect`, `LightDarkMode`, and the content components
+(`Gallery`, `SpecsTable`, `CtaBand`, `ContactForm`) all render with fixed DaisyUI class names
+(`navbar`, `menu`, `btn`, `dropdown`, `footer-title`, ...) — they are not usable without
+DaisyUI's CSS loaded, full stop. There's no config flag that swaps this out; if you import
+`@mrmx/chiqui/components` and see unstyled/broken-looking markup, this is why. Two ways to
+fix it:
+
+**Option A — `@mrmx/chiqui/style.css`, zero config.** Chiqui compiles its own DaisyUI +
+Tailwind build (scanned only against its own component sources — a closed, fixed set of
+classes) and publishes the result as a plain stylesheet. This is what `sites/docs` does:
+
+```ts
+// src/routes/+layout.svelte, or wherever your global CSS is imported
+import '@mrmx/chiqui/style.css';
+```
+
+No Tailwind, no DaisyUI, nothing to install or configure on your side. It also includes
+`@tailwindcss/typography`'s `prose`/`prose-neutral`/`dark:prose-invert`/`max-w-none` (a fixed,
+pre-registered set via `@source inline()` — see `packages/chiqui/src/style.css`), so wrapping
+your Markdown content in those classes gets real heading/paragraph/list/code/image typography
+without your own Tailwind build either:
+
+```svelte
+<div class="content prose prose-neutral dark:prose-invert max-w-none">
+	{@render children?.()}
+</div>
+```
+
+The trade-off: this stylesheet only covers what chiqui's own components use, plus that fixed
+prose class list — it does **not** extend to arbitrary DaisyUI/Tailwind classes you write
+yourself elsewhere (e.g. `<a class="btn btn-primary">` inside your own `.md` content, as in
+the [Get in touch](#get-in-touch) example above — that one happens to work only because
+`btn`/`btn-primary` are already used by other chiqui components, not because Option A
+generates classes on demand), nor to a `prose` variant/modifier outside that fixed list (e.g.
+`prose-sm`, `prose-a:text-blue-500`). If you want either of those, use Option B instead.
+
+**Option B — your own Tailwind + DaisyUI.** Full JIT compilation across your whole project
+(so any DaisyUI/Tailwind class you write anywhere — your own components, your own Markdown
+content — gets picked up too, not just chiqui's fixed set):
+
+```css
+/* src/app.css */
+@import 'tailwindcss';
+@source '../../../packages/chiqui/src';
+@source '../../../packages/chiqui/dist';
+@plugin '@tailwindcss/typography';
+@plugin 'daisyui' {
+	themes:
+		light --default,
+		dark;
+}
+```
+
+The `@source` lines matter: without them, Tailwind never scans chiqui's component sources,
+so classes chiqui uses internally (but your own code never types out literally) get purged
+as "unused". Don't load Option A's `style.css` *and* set up Option B in the same app — you'd
+ship DaisyUI's CSS twice.
 
 ## SEO
 
@@ -264,6 +484,9 @@ basic Open Graph tags, and `twitter:card`:
 	{getHreflangAlternates}
 />
 ```
+
+(the full `+page.svelte` — `data.component`, `<Page />`, everything else on the page — is in
+[Quick Start step 5](#5-content).)
 
 Props:
 
@@ -389,13 +612,10 @@ is needed):
 ```js
 // svelte.config.js
 import adapter from '@sveltejs/adapter-static';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { createSvelteConfig } from '@mrmx/chiqui/svelte-config';
 
-export default createSvelteConfig(
-	() => adapter({ fallback: '404.html', strict: false }),
-	vitePreprocess,
-	mdsvex
-);
+export default createSvelteConfig(() => adapter({ fallback: '404.html', strict: false }), vitePreprocess);
 ```
 
 Hosts like Vercel/Netlify then serve `404.html` (which renders your `+error.svelte`) for any
@@ -512,6 +732,72 @@ flat metadata consumed outside the component tree (`<Seo>`, navigation, `sitemap
 based on — it renders both an image and a video `<Gallery>` item, `<SpecsTable>`, `<CtaBand>`,
 and an unconnected `<ContactForm>` in the actual static build.
 
+## Headless usage
+
+Chiqui doesn't have to own the whole site. `@mrmx/chiqui/content`, `/navigation`, and
+`/config` are plain TypeScript with no import from `/components` (the DaisyUI-based UI
+layer) and no assumption about how — or whether — the consumer prerenders. This is the
+shape to reach for when embedding a Markdown-driven doc section inside a larger app that
+already has its own header/footer, its own i18n, and possibly server-rendered routes
+elsewhere:
+
+```ts
+// src/lib/docs/content.ts — inside a larger, non-static SvelteKit app
+import { createContent } from '@mrmx/chiqui/content';
+
+// Glob path is relative to this file, not the project root, so basePath matches it.
+const modules = import.meta.glob('./content/*/*.md', { eager: true });
+
+export const docs = createContent(modules, { basePath: './content/' });
+```
+
+For a flat, sidebar-and-pager doc section specifically (the shape above tends toward),
+`createDocsSection` collapses `createContent` + `assertValidIndex` + `createDocsNav` into one
+call — the one-liner setup for the common case where nothing in between needs customizing:
+
+```ts
+import { createDocsSection } from '@mrmx/chiqui/navigation';
+
+const modules = import.meta.glob('./content/*/*.md', { eager: true });
+export const docs = createDocsSection(modules, { basePath: './content/', defaultLang: 'en' });
+
+// docs.navFor('es')                  → sidebar entries, translated where available
+// docs.resolve('es', 'laboratory')   → the doc (falls back to 'en', flagged `untranslated`)
+// docs.neighbors('en', 'laboratory') → { previous, next } for an in-page pager
+// docs.store                         → the underlying ContentStore, for anything DocsNav doesn't cover
+```
+
+Reach for `createContent` + `createDocsNav` separately instead (as above) when something needs
+to happen in between — e.g. inspecting `store.index.warnings` before deciding whether to treat
+them as fatal, or building more than one `DocsNav` view (a `filter`ed subset alongside the full
+set) off the same store without re-parsing the glob twice.
+
+Notes for this mode:
+
+- **`basePath`** (`CreateContentOptions`, default `'/content/'`) must match whatever glob
+  pattern you passed to `import.meta.glob` — it's the prefix `createContent` strips before
+  splitting each path into `{ lang, slug }`. Use `'./content/'` for a relative glob run from
+  a nested file (as above); keep the default for the conventional root-level `content/`
+  layout.
+- **`id` is optional** in frontmatter as of this version: if omitted, it defaults to the
+  entry's own slug. This is enough for sites where the same slug is reused verbatim across
+  languages (`en/getting-started.md` / `es/getting-started.md`) — the slug itself is the
+  cross-language key. Sites that translate the slug too (`en/about.md` / `es/acerca.md`)
+  still need an explicit `id:` in frontmatter to link the pair; `assertValidIndex()` will
+  flag it (`[E:id]`) if the id ends up empty (only possible when both the slug and the id
+  are missing, e.g. an untitled index page).
+- **Rendering mode is still entirely up to you.** Nothing in `createContent`/`getContent`
+  requires `prerender = true` or `adapter-static` — call it from a normal (dynamic) `load`
+  function exactly like any other data source, or prerender the section if you want static
+  output for those routes specifically. `contentEntries()` is only relevant if you opt into
+  prerendering.
+- **Bring your own UI.** `getContent(lang, slug)` returns a `ContentEntry` with `.component`
+  (the compiled MDsveX component) and `.metadata` (frontmatter) — render it inside whatever
+  layout/sidebar/pager component your app already has. `@mrmx/chiqui/components`'s `<Seo>`
+  has no DaisyUI classes either (it only renders into `<svelte:head>`) and can be reused
+  standalone if useful; `Header`/`Footer`/`NavLink`/`LanguageSelect` are DaisyUI-styled and
+  are meant for full-site consumers, not headless ones.
+
 ## Package Exports
 
 - `@mrmx/chiqui` — types (`AppConfig`, `Link`, `Group`, `NavNode`, `ContentEntry`, `NavItem`)
@@ -519,8 +805,10 @@ and an unconnected `<ContactForm>` in the actual static build.
 - `@mrmx/chiqui/content` — `createContent` factory (exposes `contentEntries()` for
   `entries()` in prerendered dynamic routes, `getContent()` for an O(1) indexed lookup,
   `assertValidIndex()` for strict build-time validation, plus the legacy `contentRoutes`
-  array)
+  array). Accepts a `{ basePath? }` option for non-root content layouts — see
+  [Headless usage](#headless-usage).
 - `@mrmx/chiqui/components` — `Header`, `Footer`, `Hero`, `Carousel`, `LanguageSelect`, `LightDarkMode`, `Icon`, `NavLink`, `Seo`, `SiteLogo`, `Gallery`, `SpecsTable`, `CtaBand`, `ContactForm`
+  - Needs DaisyUI's CSS to render correctly — see [Styling `@mrmx/chiqui/components`](#styling-mrmxchiquicomponents).
   - `Header` renders `Group` nav nodes as a DaisyUI dropdown submenu (`<details>` inside
     `menu menu-horizontal`), not just flat `Link`s.
   - `Seo` renders per-page `<title>`, canonical, hreflang (+ `x-default`), OG, and Twitter
@@ -528,14 +816,27 @@ and an unconnected `<ContactForm>` in the actual static build.
   - `Gallery`, `SpecsTable`, `CtaBand`, `ContactForm` — generic rich-content components meant
     to be used inside `.md` files via mdsvex — see the Content components section above.
 - `@mrmx/chiqui/navigation` — `getLevelContentEntries()` (returns `NavItem[]`, see Breaking
-  Changes below), `PartialSlugOptions`, `NavItem`
+  Changes below), `PartialSlugOptions`, `NavItem`; `createDocsNav(store, { defaultLang, filter? })`
+  for a flat, ordered doc set — sidebar (`navFor`), single-doc resolution with translation
+  fallback (`resolve`), and a prev/next pager (`neighbors`), all sorted by `order` frontmatter;
+  `createDocsSection(modules, { basePath?, defaultLang, filter?, strict? })` — one call from
+  glob modules straight to a ready `DocsNav` (+ `.store`), wiring `createContent` +
+  `assertValidIndex`/`validateIndex` + `createDocsNav` for the common case. Headless-friendly:
+  built on `ContentStore` alone, no `components` import.
 - `@mrmx/chiqui/hooks` — `createLangHandle()` for `hooks.server.ts` (rewrites the `%lang%`
   placeholder in `app.html`), plus the pure `resolveLangFromPath()` it's built on
 - `@mrmx/chiqui/sitemap` — `generateSitemapXml()` for a prerendered `sitemap.xml/+server.ts`
 - `@mrmx/chiqui/vite` — `chiquiViteConfig()` for `vite.config.ts` (deep-merges `options.vite`
   via Vite's own `mergeConfig` instead of a shallow spread)
-- `@mrmx/chiqui/svelte-config` — `createSvelteConfig()` for `svelte.config.js`, fully typed
-  (`Adapter`, `Config` from `@sveltejs/kit`; no `any` in its public signature)
+- `@mrmx/chiqui/svelte-config` — `createSvelteConfig()` for a whole `svelte.config.js`, fully
+  typed (`Adapter`, `Config` from `@sveltejs/kit`; no `any` in its public signature), with an
+  `overrides` escape hatch merged over its output last; `createChiquiPreprocessor()` for just
+  the mdsvex preprocessor, when a consumer owns `svelte.config.js` itself (e.g. chiqui powers
+  one section of a larger app) and only wants to avoid depending on `mdsvex` directly
+- `@mrmx/chiqui/style.css` — compiled DaisyUI + Tailwind CSS for `@mrmx/chiqui/components`,
+  plus `@tailwindcss/typography`'s `prose`/`prose-neutral`/`dark:prose-invert`/`max-w-none`
+  for Markdown content, zero config needed on the consumer's side — see
+  [Styling `@mrmx/chiqui/components`](#styling-mrmxchiquicomponents)
 - `@mrmx/chiqui/types` — bare types entry point
 
 ## Breaking Changes
@@ -547,7 +848,13 @@ and an unconnected `<ContactForm>` in the actual static build.
 
 ## Working Example
 
-See [`sites/docs`](https://github.com/mrmx/Chiqui/tree/main/sites/docs) in the repo for a complete reference site.
+- [`sites/docs`](https://github.com/mrmx/Chiqui/tree/main/sites/docs) — the full/Quick Start
+  pattern: chiqui owns the whole site (routing, i18n, `<Header>`/`<Footer>`, static
+  generation).
+- [`sites/headless-demo`](https://github.com/mrmx/Chiqui/tree/main/sites/headless-demo) — the
+  headless pattern: a minimal, otherwise-plain SvelteKit app (own layout, own routes,
+  `adapter-auto`, no `@mrmx/chiqui/components`) that embeds only `createDocsSection` +
+  `createChiquiPreprocessor` for a `/docs` section — see the "Headless usage" section above.
 
 ## License
 
