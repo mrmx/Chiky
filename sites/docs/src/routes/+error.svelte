@@ -7,12 +7,36 @@
 	<title>{siteName()} — {page.status}</title>
 </svelte:head>
 
-<div class="hero min-h-[60vh]">
-	<div class="hero-content text-center">
-		<div class="max-w-md">
-			<h1 class="text-6xl font-bold">{page.status}</h1>
-			<p class="py-4 opacity-70">{page.error?.message ?? 'Page not found.'}</p>
-			<a href="/" class="btn btn-primary">Back to home</a>
-		</div>
-	</div>
+<div class="error-page">
+	<h1>{page.status}</h1>
+	<p>{page.error?.message ?? 'Page not found.'}</p>
+	<a href="/">Back to home</a>
 </div>
+
+<style>
+	.error-page {
+		min-height: 60vh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		gap: 0.75rem;
+	}
+
+	h1 {
+		font-size: 3.5rem;
+		font-weight: bold;
+		margin: 0;
+	}
+
+	p {
+		opacity: 0.7;
+		margin: 0;
+	}
+
+	a {
+		margin-top: 0.5rem;
+		color: var(--color-primary);
+	}
+</style>

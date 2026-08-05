@@ -7,6 +7,7 @@ export { default as Header } from './Header.svelte';
 export { default as Hero } from './Hero.svelte';
 export { default as Icon } from './Icon.svelte';
 export { default as LanguageSelect } from './LanguageSelect.svelte';
+export { default as Layout } from './Layout.svelte';
 export { default as LightDarkMode } from './LightDarkMode/LightDarkMode.svelte';
 export { default as NavLink } from './NavLink.svelte';
 export { default as Seo } from './Seo.svelte';
