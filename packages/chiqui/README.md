@@ -841,10 +841,20 @@ Notes for this mode:
 
 ## Breaking Changes
 
-- **0.2.0 (unreleased)** — `getLevelContentEntries()` now returns `NavItem[]`
-  (`{ lang, slug, title }`) instead of a fabricated `ContentEntry[]` that lacked a real
-  `component`/`metadata.id`. If you called `.component` or `.metadata` on its results,
-  update to the flat `.title` field instead.
+Summary below; see [CHANGELOG.md](https://github.com/mrmx/Chiqui/blob/main/packages/chiqui/CHANGELOG.md) for the complete, generated history.
+
+- **0.2.0**
+  - `getLevelContentEntries()` now returns `NavItem[]` (`{ lang, slug, title }`) instead of a
+    fabricated `ContentEntry[]` that lacked a real `component`/`metadata.id`. If you called
+    `.component` or `.metadata` on its results, update to the flat `.title` field instead.
+  - `createSvelteConfig(adapter, vitePreprocess, mdsvex, options?)` drops the `mdsvex`
+    parameter — it's a real dependency of `@mrmx/chiqui` now, wired in internally. Update
+    call sites to `createSvelteConfig(adapter, vitePreprocess, options?)`; override mdsvex
+    options via `options.mdsvexOptions`.
+  - `createSvelteConfig`'s default `extensions` is now `['.svelte', ...mdsvexExtensions]`
+    (`['.svelte', '.md']` by default) instead of the previous hardcoded
+    `['.svelte', '.svx', '.md']`. A site relying on default `.svx` support must now pass
+    `mdsvexOptions: { extensions: ['.md', '.svx'] }` explicitly.
 
 ## Working Example
 
