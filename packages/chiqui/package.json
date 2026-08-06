@@ -1,6 +1,6 @@
 {
 	"name": "@mrmx/chiqui",
-	"version": "0.1.2",
+	"version": "0.2.0",
 	"description": "Content-driven SvelteKit SSG framework with i18n, mdsvex content pipeline, and DaisyUI components.",
 	"type": "module",
 	"license": "MIT",
