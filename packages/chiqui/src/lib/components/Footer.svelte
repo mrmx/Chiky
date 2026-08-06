@@ -11,7 +11,7 @@
 	let navItems = $derived(footerNavItems(lang));
 </script>
 
-<footer class="footer">
+<footer class="footer sm:footer-horizontal bg-base-200 text-base-content border-base-300 border-t p-10">
 	<aside class="self-center text-center sm:text-left">
 		<SiteLogo />
 		<p class="mt-4 text-sm opacity-60">&copy; {YEAR} {COPYRIGHT}. All rights reserved.</p>

@@ -10,7 +10,8 @@ Chiqui is an open-source, content-driven SSG framework built on SvelteKit + mdsv
 
 ```
 packages/chiqui/    # The npm package (@mrmx/chiqui) — lib (types, config, content, navigation) + Svelte components
-sites/docs/         # Documentation site that dogfoods @mrmx/chiqui as a dependency
+sites/docs/         # Documentation site that dogfoods @mrmx/chiqui as a dependency (full/Quick Start pattern — chiqui owns the whole site)
+sites/headless-demo/ # Minimal reference for the headless pattern — own layout/routes/adapter-auto, only createDocsSection + createChiquiPreprocessor from chiqui
 ```
 
 ## Commands
@@ -35,11 +36,14 @@ Exports via subpath exports (`@mrmx/chiqui`, `@mrmx/chiqui/config`, `@mrmx/chiqu
 Key design decisions:
 
 - **`initConfig(rawConfig)`** — consumer provides their AppConfig, chiqui caches and exposes helpers (siteName, navItems, etc.)
-- **`createContent(modules)`** — factory that takes `import.meta.glob` result from the consumer (Vite glob must run in consumer context). `getContent(lang, slug)` is an O(1) lookup against `index.bySlug` (not a linear `Array.find`).
-- **`createSvelteConfig(adapter, vitePreprocess, mdsvex)`** — generates standard SvelteKit config; fully typed (`adapter: () => Adapter`, return type `Config` from `@sveltejs/kit`), no `any` in its signature
+- **`createContent(modules, options?)`** — factory that takes `import.meta.glob` result from the consumer (Vite glob must run in consumer context). `getContent(lang, slug)` is an O(1) lookup against `index.bySlug` (not a linear `Array.find`). `options.basePath` (default `'/content/'`) is the prefix stripped before splitting each glob key into `{ lang, slug }` — set it to match a non-root glob (e.g. `'./content/'` for a relative glob run from a nested lib file), which is the seam a consumer embedding just the content engine inside a larger app uses (see README "Headless usage"). Frontmatter `id` is optional: when omitted it defaults to the entry's own slug, so translations that already reuse the same slug across languages link up without redundant `id:` frontmatter — sites that translate the slug too (`about`/`acerca`) still need an explicit `id` to link the pair.
+- **`createSvelteConfig(adapter, vitePreprocess, options?)`** — generates standard SvelteKit config; fully typed (`adapter: () => Adapter`, return type `Config` from `@sveltejs/kit`), no `any` in its signature. `mdsvex` is not a parameter — it's a real dependency of `@mrmx/chiqui` (chiqui *is* an mdsvex content pipeline), imported and applied internally; override its options via `options.mdsvexOptions`, or anything else via `options.overrides` (merged over the generated config last — `kit.alias` merges, everything else replaces outright). `createChiquiPreprocessor(mdsvexOptions?)` is the narrower sibling — just the mdsvex preprocessor, for a consumer that owns its own `svelte.config.js` (e.g. chiqui powers one section of a larger, otherwise-dynamic app) and doesn't want `createSvelteConfig`'s full opinion on `kit.adapter`/`kit.alias`/`extensions`.
 - **`chiquiViteConfig()`** — returns Vite config with test/coverage defaults; merges `options.vite` with Vite's own `mergeConfig` (deep merge) instead of a shallow `...spread`, so nested keys like `server.fs.allow` survive a caller passing e.g. `vite: { server: {...} }`
 - **`getLevelContentEntries()`** (in `@mrmx/chiqui/navigation`) returns `NavItem[]` (`{ lang, slug, title }`), a dedicated synthetic-nav-node type — not a fabricated `ContentEntry` (which would lie about having a real `component`/`metadata.id`)
+- **`createDocsNav(store, { defaultLang, filter? })`** (also in `@mrmx/chiqui/navigation`) — the headless building block for a flat `/docs`-style section: `navFor(lang)` (sidebar, sorted by `order` frontmatter then title, translated where available), `resolve(lang, slug)` (single doc, falling back to `defaultLang` and flagged `untranslated` instead of 404ing), `neighbors(lang, slug)` (prev/next pager). Built only on `ContentStore` (from `createContent`), so it composes with the headless/`basePath` pattern above with no `components` dependency. Deliberately narrower than `getLevelContentEntries` (flat doc list vs. hierarchical nav-tree from slug segments) — pick based on shape, not as a default.
+- **`createDocsSection(modules, { basePath?, defaultLang, filter?, strict? })`** (also in `@mrmx/chiqui/navigation`) — one-call convenience wrapper: `createContent` → `assertValidIndex()`/`validateIndex()` (`strict`, default `true`) → `createDocsNav`, returning `DocsNav & { store }`. This is the one to reach for from a consumer's own glob-wiring file when nothing needs to happen between the three steps; drop to the separate calls when it does (e.g. inspecting `store.index.warnings` before deciding severity, or building more than one filtered `DocsNav` off one store).
 - Components use `$lib/` imports internally (resolved by svelte-package during build). `Header` renders `Group` nav nodes as a DaisyUI dropdown submenu (`<details>` inside `menu menu-horizontal`, recursive for nested groups) instead of silently dropping them; it uses `$app/state` (not the deprecated `$app/stores`), consistent with `LanguageSelect`.
+- **`@mrmx/chiqui/components` needs DaisyUI's CSS to not render broken** — its class names (`navbar`, `btn`, `dropdown`, `footer-title`, ...) are fixed, not swappable. `src/style.css` (scanned only against `src/lib/components/**`, a closed set of classes, plus `@tailwindcss/typography`'s `prose`/`prose-neutral`/`dark:prose-invert`/`max-w-none` force-included via `@source inline()` as a Layout-independent guarantee — `Layout.svelte` already writes those literally too) is chiqui's own build input, compiled by `pnpm build:css` (`tailwindcss -i src/style.css -o dist/style.css --minify`, part of `pnpm build`) into `dist/style.css`, published as the `@mrmx/chiqui/style.css` export — a zero-config drop-in for a consumer that uses the components as-is, including Markdown content typography (`<Layout>`'s `<main>` wraps content in `prose prose-neutral dark:prose-invert` + `max-w-none lg:max-w-5xl`, all in its own component markup — see `sites/docs`, which composes nothing of its own). A consumer that also authors its own arbitrary DaisyUI classes or `prose` modifiers outside that fixed list needs full Tailwind + DaisyUI of its own instead (with `@source` pointing at chiqui's `src`/`dist`) — don't load both, it ships DaisyUI's CSS twice. See the README's "Styling `@mrmx/chiqui/components`" section.
 - **SEO** (`<Seo>` in `@mrmx/chiqui/components`) — per-page `<title>`, canonical, hreflang
   alternates + `x-default`, OG/Twitter tags. Takes `getHreflangAlternates` injected the same
   way `Header` takes `getTranslatedSlug`. Its pure URL-building logic (`buildCanonicalPath`,
@@ -82,12 +86,12 @@ Key design decisions:
    aborts the build/prerender instead of just logging. `console.log` content dumps are
    gated behind `dev` from `$app/environment` (never printed in a production build).
 5. Routes import from `$lib/config` and `$lib/content` (the site's thin wrappers)
-6. Layout uses `<Header />` and `<Footer />` from `@mrmx/chiqui/components`
+6. `src/routes/+layout.svelte` is just `<Layout>{@render children?.()}</Layout>` from `@mrmx/chiqui/components` — the whole page shell (`<Header>`/`<main>`/`<Footer>`), zero markup or CSS of the site's own
 
 ### Static generation (prerender)
 
 Chiqui sites are genuinely static: `sites/docs` uses `@sveltejs/adapter-static` (not
-`adapter-auto`), configured via `createSvelteConfig(adapter, vitePreprocess, mdsvex)` in
+`adapter-auto`), configured via `createSvelteConfig(adapter, vitePreprocess)` in
 `svelte.config.js`.
 
 - `src/routes/+layout.ts` sets `export const prerender = true;` so every route is prerendered.

@@ -67,12 +67,18 @@ describe('parseModules (via createContent)', () => {
 		expect((entry.metadata as any).customField).toBe('hello');
 	});
 
-	it('handles metadata without id (id becomes empty string)', () => {
+	it('defaults id to the slug when metadata omits it', () => {
 		const store = createContent(makeModules([{ path: '/content/en/no-id.md' }]));
-		// id is missing → coerced to empty string by parseModules
+		// No id in frontmatter → falls back to the slug, so translations that already share
+		// the same slug across languages link up without redundant `id:` frontmatter.
+		expect(store.contents[0].metadata.id).toBe('no-id');
+		expect(store.index.errors).toHaveLength(0);
+	});
+
+	it('still reports a missing-id error when the slug is also empty (index page, no id)', () => {
+		const store = createContent(makeModules([{ path: '/content/en/index.md' }]));
 		expect(store.contents[0].metadata.id).toBe('');
-		// buildIndex should report an error
-		expect(store.index.errors.length).toBeGreaterThan(0);
+		expect(store.index.errors.some((e) => e.includes('[E:id]'))).toBe(true);
 	});
 
 	it('assigns component from module default', () => {
@@ -97,18 +103,13 @@ describe('parseModules (via createContent)', () => {
 // buildIndex (via createContent)
 // ---------------------------------------------------------------------------
 describe('buildIndex (via createContent)', () => {
-	it('reports error for missing id', () => {
-		const store = createContent(makeModules([{ path: '/content/en/page.md' }]));
+	it('reports error for missing id when the slug is also empty', () => {
+		const store = createContent(makeModules([{ path: '/content/en/index.md' }]));
 		expect(store.index.errors.some((e) => e.includes('[E:id]'))).toBe(true);
 	});
 
 	it('reports error for duplicate slug within same language', () => {
-		const mods: Record<string, unknown> = {
-			'/content/en/dup.md': { metadata: { id: 'id-a', title: 'A' }, default: FakeComponent },
-			'/content/en/other.md': { metadata: { id: 'id-b', title: 'B' }, default: FakeComponent }
-		};
-		// Force same slug by manipulating modules directly - both have different paths but same slug after strip
-		// Instead use a more direct approach: two identical paths won't work in object, so test with similar content
+		// Two different paths that collapse to the same slug after the index/extension strip.
 		const store = createContent({
 			'/content/en/guide/index.md': { metadata: { id: 'id-a' }, default: FakeComponent },
 			'/content/en/guide.md': { metadata: { id: 'id-b' }, default: FakeComponent }
@@ -173,7 +174,7 @@ describe('validateIndex', () => {
 
 	it('returns false and logs when errors exist', () => {
 		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const store = createContent(makeModules([{ path: '/content/en/page.md' }]));
+		const store = createContent(makeModules([{ path: '/content/en/index.md' }]));
 		expect(store.validateIndex()).toBe(false);
 		expect(consoleErrorSpy).toHaveBeenCalled();
 		consoleErrorSpy.mockRestore();
@@ -245,9 +246,7 @@ describe('assertValidIndex', () => {
 
 	it('throws with the accumulated error messages when errors exist', () => {
 		const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-		const store = createContent(
-			makeModules([{ path: '/content/en/page.md' }, { path: '/content/en/other.md' }])
-		);
+		const store = createContent(makeModules([{ path: '/content/en/index.md' }]));
 		expect(() => store.assertValidIndex()).toThrow(/\[E:id\]/);
 		consoleWarnSpy.mockRestore();
 	});
@@ -422,5 +421,40 @@ describe('contentEntries', () => {
 	it('returns empty array for no modules', () => {
 		const store = createContent({});
 		expect(store.contentEntries()).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// basePath option (headless / non-root content layouts)
+// ---------------------------------------------------------------------------
+describe('basePath option', () => {
+	it('defaults to stripping /content/ for the conventional root-level layout', () => {
+		const store = createContent(
+			makeModules([{ path: '/content/en/about.md', id: 'about', title: 'About' }])
+		);
+		expect(store.contents[0]).toMatchObject({ lang: 'en', slug: 'about' });
+	});
+
+	it('parses a relative glob prefix (e.g. a consumer embedding content next to its own lib file)', () => {
+		const store = createContent(
+			{ './content/en/getting-started.md': { metadata: { title: 'Getting started' }, default: FakeComponent } },
+			{ basePath: './content/' }
+		);
+		expect(store.contents[0]).toMatchObject({ lang: 'en', slug: 'getting-started' });
+		// No id in frontmatter → falls back to slug, same as the default basePath.
+		expect(store.contents[0].metadata.id).toBe('getting-started');
+		expect(store.index.errors).toHaveLength(0);
+	});
+
+	it('leaves a path untouched if it does not start with basePath (no false-positive strip)', () => {
+		const store = createContent(
+			{ '/other/en/about.md': { metadata: { id: 'about' }, default: FakeComponent } },
+			{ basePath: '/content/' }
+		);
+		// Whole path (minus .md) is split into segments since the prefix never matched; the
+		// leading '/' produces an empty first segment as `lang`, making the mismatch obvious
+		// rather than silently guessing.
+		expect(store.contents[0].lang).toBe('');
+		expect(store.contents[0].slug).toBe('other/en/about');
 	});
 });

@@ -4,6 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "pnpm --filter docs dev",
+		"dev:docs": "pnpm --filter docs dev",
+		"dev:headless-demo": "pnpm --filter headless-demo dev",
 		"build": "pnpm --filter @mrmx/chiqui build && pnpm --filter docs build",
 		"test": "pnpm -r test",
 		"check": "pnpm -r check",

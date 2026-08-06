@@ -68,7 +68,8 @@
 		"./svelte-config": {
 			"types": "./dist/svelte-config.d.ts",
 			"default": "./dist/svelte-config.js"
-		}
+		},
+		"./style.css": "./dist/style.css"
 	},
 	"files": [
 		"dist"
@@ -78,9 +79,11 @@
 		"provenance": true
 	},
 	"scripts": {
-		"build": "svelte-kit sync && svelte-package",
+		"build": "svelte-kit sync && svelte-package && pnpm build:css",
+		"build:css": "tailwindcss -i src/style.css -o dist/style.css --minify",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"test": "vitest run",
+		"prepare": "pnpm build",
 		"prepublishOnly": "pnpm build"
 	},
 	"peerDependencies": {
@@ -88,17 +91,21 @@
 		"svelte": "^5.0.0"
 	},
 	"dependencies": {
-		"@iconify/svelte": "^5.0.2"
+		"@iconify/svelte": "^5.0.2",
+		"mdsvex": "^0.12.6"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^6.1.1",
 		"@sveltejs/kit": "^2.47.0",
 		"@sveltejs/package": "^2.3.11",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"@tailwindcss/cli": "^4.3.3",
+		"@tailwindcss/typography": "^0.5.20",
 		"@vitest/coverage-v8": "^3.2.4",
-		"mdsvex": "^0.12.6",
+		"daisyui": "^5.5.19",
 		"svelte": "^5.40.1",
 		"svelte-check": "^4.3.3",
+		"tailwindcss": "^4.2.2",
 		"typescript": "^5.9.3",
 		"vite": "^7.1.10",
 		"vitest": "^3.2.4"

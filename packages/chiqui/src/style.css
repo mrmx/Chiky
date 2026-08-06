@@ -1,0 +1,41 @@
+/*
+ * Source for the compiled `dist/style.css` (published as `@mrmx/chiqui/style.css`).
+ *
+ * This is NOT for consumers to edit or extend — it's chiqui's own build input, scanned only
+ * against `src/lib/components/**`, a closed set of DaisyUI classes chiqui's components use
+ * internally. The compiled output is a drop-in stylesheet for a consumer that uses
+ * `@mrmx/chiqui/components` as-is and doesn't want to install/configure Tailwind + DaisyUI
+ * itself — see the README's "Styling `@mrmx/chiqui/components`" section for the trade-off
+ * against bringing your own Tailwind (which a site that also authors its own DaisyUI classes
+ * in Markdown content, like `sites/docs`, still needs to do).
+ */
+@import 'tailwindcss';
+@source "./lib/components";
+@plugin "daisyui" {
+	themes:
+		light --default,
+		dark;
+}
+@plugin "@tailwindcss/typography";
+
+/* `<Layout>`'s sticky-footer shell (`min-h-screen`/`overflow-hidden` on its own wrapper div,
+   `overflow-auto` on its `<main>`) only works if `<html>`/`<body>` themselves don't add their
+   own scrollbar or default margin — but no chiqui component ever renders `<html>`/`<body>`,
+   so there's no component markup to put a class on. This is chiqui's one plain, hand-written
+   global rule (not a Tailwind utility, not scanned from any component source): a baseline
+   reset a zero-config consumer gets automatically alongside `<Layout>`. */
+html,
+body {
+	height: 100%;
+	margin: 0;
+}
+
+/* `<Layout>` already writes `prose prose-neutral dark:prose-invert max-w-none` literally in
+   its own markup, so the JIT scan above (`@source "./lib/components"`) picks these utilities
+   up on its own now — this `@source inline()` is redundant for a consumer using `<Layout>`.
+   It stays anyway as an explicit, Layout-independent guarantee: Markdown content rendered via
+   mdsvex commonly needs prose typography (heading scale, paragraph/list spacing, link/code/
+   image defaults), and a consumer that builds its own page shell instead of `<Layout>` (see
+   the README's Quick Start step 4 alternative) still gets these utilities compiled in without
+   ever typing `class="prose"` anywhere chiqui's own component sources would scan. */
+@source inline("prose prose-neutral dark:prose-invert max-w-none");

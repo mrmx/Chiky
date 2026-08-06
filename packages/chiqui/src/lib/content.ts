@@ -2,16 +2,39 @@
 // The consumer calls createContent(modules) passing the result of
 // import.meta.glob('/content/**/*.md', { eager: true }).
 // This keeps Vite's glob in the consumer's context while chiqui owns the logic.
+//
+// Headless usage: a consumer that embeds chiqui as a section of a larger app (its own
+// Header/Footer, its own i18n, content living somewhere other than a root-level
+// `content/` folder) can call createContent with a `basePath` matching whatever glob
+// pattern it used, e.g. `createContent(glob, { basePath: './content/' })` for
+// `import.meta.glob('./content/*/*.md', ...)` run from a nested lib file. See
+// @mrmx/chiqui/navigation and @mrmx/chiqui/config for the rest of the headless surface —
+// none of `content`, `navigation`, or `config` import anything from `components`, so a
+// consumer can use the content engine without pulling in the DaisyUI-based UI.
 
 import type { Component } from 'svelte';
 import type { ContentEntry, ContentFrontmatter, ContentIndex } from './types.js';
 
+export interface CreateContentOptions {
+	/**
+	 * Prefix stripped from each glob key before parsing it into `{ lang, slug }`. Must match
+	 * the glob pattern passed to `import.meta.glob` (e.g. `'/content/'` for a root-level
+	 * `import.meta.glob('/content/**\/*.md', ...)`, or `'./content/'` for a relative glob run
+	 * from a file living next to its own `content/` folder). Defaults to `'/content/'`, the
+	 * conventional root-level layout used by `sites/docs`.
+	 */
+	basePath?: string;
+}
+
 // --- Parse glob modules into content entries --------------------------------
 
-function parseModules(modules: Record<string, any>): ContentEntry[] {
+function stripBasePath(path: string, basePath: string): string {
+	return path.startsWith(basePath) ? path.slice(basePath.length) : path;
+}
+
+function parseModules(modules: Record<string, any>, basePath: string): ContentEntry[] {
 	return Object.entries(modules).map(([path, mod]: [string, any]) => {
-		const parts = path
-			.replace(/^\/content\//, '')
+		const parts = stripBasePath(path, basePath)
 			.replace(/\.md$/, '')
 			.replace(/\/index$/, '')
 			.split('/');
@@ -23,7 +46,13 @@ function parseModules(modules: Record<string, any>): ContentEntry[] {
 			lang,
 			slug,
 			metadata: {
-				id: String(md.id ?? ''),
+				// Falls back to the slug (not '') when frontmatter omits `id`: a consumer whose
+				// translations already share the same slug across languages (e.g. `en/foo.md` and
+				// `es/foo.md`) gets a working canonical id for free, instead of being forced to add
+				// redundant `id:` frontmatter everywhere. Sites that use different slugs per
+				// language (e.g. `en/about.md` / `es/acerca.md`) still need an explicit `id` to link
+				// them — this only removes the requirement, it doesn't change its meaning.
+				id: String(md.id ?? slug),
 				title: md.title as string | undefined,
 				...md
 			},
@@ -104,9 +133,16 @@ export interface ContentStore {
 	contentEntries: () => Array<{ lang: string; slug: string }>;
 }
 
-/** Create a content store from Vite glob modules (import.meta.glob result). */
-export function createContent(modules: Record<string, any>): ContentStore {
-	const contents = parseModules(modules);
+/**
+ * Create a content store from Vite glob modules (import.meta.glob result).
+ * See {@link CreateContentOptions.basePath} for headless/non-root content layouts.
+ */
+export function createContent(
+	modules: Record<string, any>,
+	options: CreateContentOptions = {}
+): ContentStore {
+	const basePath = options.basePath ?? '/content/';
+	const contents = parseModules(modules, basePath);
 	const index = buildIndex(contents);
 
 	function validateIndex() {
