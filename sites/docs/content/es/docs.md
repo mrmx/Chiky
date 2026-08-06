@@ -134,7 +134,7 @@ falta ningún otro markup ni CSS:
 ```
 
 `<Layout>` (como cada export de `@mrmx/chiqui/components`) está construido con clases DaisyUI
-fijas — nada se ve bien hasta que importás `@mrmx/chiqui/style.css` en algún lado, como arriba.
+fijas — nada se ve bien hasta que importas `@mrmx/chiqui/style.css` en algún lado, como arriba.
 
 ### 6. Contenido + la ruta de página
 
@@ -149,7 +149,7 @@ title: Bienvenido
 ¡Hola mundo!
 ```
 
-El `id` es el identificador canónico — usá el mismo `id` en distintos idiomas para enlazar
+El `id` es el identificador canónico — usa el mismo `id` en distintos idiomas para enlazar
 traducciones (`content/en/about.md` y `content/es/acerca.md`, ambos con `id: about`). Las
 rutas salen de idioma + slug: `content/es/acerca.md` → `/es/acerca`, `content/es/index.md` →
 `/es`.
@@ -210,7 +210,7 @@ export function load({ params }) {
 
 ### 7. Validar contenido en build time
 
-Conectá `assertValidIndex()` al hook `init` de `src/hooks.server.ts` para que un build con
+Conecta `assertValidIndex()` al hook `init` de `src/hooks.server.ts` para que un build con
 contenido roto (ids duplicados, frontmatter faltante, ...) falle de forma ruidosa en vez de
 publicarse en silencio:
 
@@ -235,8 +235,8 @@ import { createSvelteConfig } from '@mrmx/chiqui/svelte-config';
 export default createSvelteConfig(adapter, vitePreprocess);
 ```
 
-No hace falta instalar ni importar `mdsvex` vos mismo — `createSvelteConfig` ya lo conecta.
-Activá el prerendering en todas las rutas:
+No hace falta instalar ni importar `mdsvex` tú mismo — `createSvelteConfig` ya lo conecta.
+Activa el prerendering en todas las rutas:
 
 ```ts
 // src/routes/+layout.ts

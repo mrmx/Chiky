@@ -33,7 +33,7 @@ configurar Tailwind + DaisyUI por su cuenta — ver la sección "Styling `@mrmx/
 del README (Opción A). Esa hoja de estilos se compila una sola vez, del lado de Chiqui,
 escaneando únicamente el código fuente de sus propios componentes — por eso `<Header>`,
 `<Footer>`, `<Layout>` y todo lo de esta página (`<Gallery>`, `<SpecsTable>`, `<CtaBand>`,
-`<ContactForm>`) se ven bien sin ninguna configuración de build acá. El `+layout.svelte` de
+`<ContactForm>`) se ven bien sin ninguna configuración de build aquí. El `+layout.svelte` de
 este sitio es solo `<Layout>{@render children?.()}</Layout>` — sin ningún markup ni CSS
 propio. Este mismo párrafo también está estilado por `<Layout>`: envuelve el contenido de la
 página en `prose prose-neutral dark:prose-invert` (más `max-w-none lg:max-w-5xl` para el
@@ -45,7 +45,7 @@ espaciado de párrafos, las listas y los bloques de código de todo el sitio sal
 banda CTA de abajo son clases DaisyUI escritas a mano, no salida de un componente de Chiqui —
 y funcionan solo porque esas mismas clases también las usa internamente el botón de
 `<ContactForm>` y `<LanguageSelect>` (en el header de arriba), así que terminan incluidas en
-el CSS compilado igual. Si escribís una clase DaisyUI que ningún componente de Chiqui usa,
+el CSS compilado igual. Si escribes una clase DaisyUI que ningún componente de Chiqui usa,
 no se va a renderizar — la Opción A cubre solo el set fijo de Chiqui, no autoría libre. Ese es
 el trade-off de zero-config; un sitio que quiera escribir sus propias clases DaisyUI
 libremente necesita su propio Tailwind + DaisyUI (Opción B).
