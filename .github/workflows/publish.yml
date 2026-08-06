@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # Manual fallback: `gh workflow run publish.yml --ref vX.Y.Z` — GITHUB_REF_NAME is the
+  # dispatched ref (the tag), so the version guard below still applies.
+  workflow_dispatch:
 
 jobs:
   publish:
