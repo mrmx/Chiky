@@ -2,6 +2,10 @@
 
 This file provides guidance to AI coding agents when working with code in this repository.
 
+**Language:** conversation with the user happens in Spanish. Everything produced —
+code, comments, commit messages, docs, this file — is in English, unless explicitly
+told otherwise for a specific piece of content.
+
 ## Overview
 
 Chiqui is an open-source, content-driven SSG framework built on SvelteKit + mdsvex. This is a pnpm monorepo. The npm package is published as `@mrmx/chiqui`.
