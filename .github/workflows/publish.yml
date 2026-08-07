@@ -18,14 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # pnpm >= 10.18 required for npm Trusted Publisher (OIDC) support.
       - uses: pnpm/action-setup@v4
         with:
           version: 10
 
+      # npm Trusted Publisher (OIDC) requires npm CLI >= 11.5.1 and Node >= 22.14.0 —
+      # bundled with Node 22. pnpm itself doesn't implement the OIDC exchange, so the
+      # actual "Publish to npm" step below uses `npm publish`, not `pnpm publish`.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           registry-url: 'https://registry.npmjs.org/'
 
@@ -39,11 +41,12 @@ jobs:
       - run: pnpm --filter '@mrmx/chiqui' check
       - run: pnpm --filter '@mrmx/chiqui' build
 
-      # OIDC Trusted Publisher: no NPM_TOKEN. Requires the id-token: write permission
-      # above and a Trusted Publisher configured on the npm package for this repo/workflow.
+      # OIDC Trusted Publisher: no NPM_TOKEN. `npm publish` (not `pnpm publish` — pnpm
+      # doesn't do the OIDC token exchange) picks it up automatically from id-token: write
+      # above plus the Trusted Publisher configured on the npm package for this repo/workflow.
       - name: Publish to npm
         working-directory: packages/chiqui
-        run: pnpm publish --access public --provenance --no-git-checks
+        run: npm publish --access public --provenance
 
       - name: Create GitHub Release
         if: success()
