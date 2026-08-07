@@ -18,9 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm >= 10.18 required for npm Trusted Publisher (OIDC) support.
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - uses: actions/setup-node@v4
         with:
@@ -38,11 +39,11 @@ jobs:
       - run: pnpm --filter '@mrmx/chiqui' check
       - run: pnpm --filter '@mrmx/chiqui' build
 
+      # OIDC Trusted Publisher: no NPM_TOKEN. Requires the id-token: write permission
+      # above and a Trusted Publisher configured on the npm package for this repo/workflow.
       - name: Publish to npm
         working-directory: packages/chiqui
         run: pnpm publish --access public --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         if: success()
